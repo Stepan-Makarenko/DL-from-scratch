@@ -16,8 +16,8 @@ int main() {
     d.printMatrix();
     // Matrix({1, 2}, 1, 2).dot(Matrix({5, -6}, 2, 1)) == Matrix({-7}, 1, 1);
     Matrix A({1, 2}, 1, 2);
-    Matrix B({5, -6}, 2, 1); 
-    Matrix C({-6}, 1, 1);
+    Matrix B({5, -6}, 2, 1);
+    Matrix C({-7}, 1, 1);
     cout << "A.dot(B) == C is " << (A.dot(B) == C) << "\n";
     return 0;
 }

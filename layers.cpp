@@ -18,8 +18,9 @@ Matrix LinearLayer::forward(Matrix& x) {
                 "LinearLayer with wrong dimensions");
         }
 
-        
+
         result = x.dot(weights);
+        result.printMatrix();
         result += bias;
     }
     catch (const exception& e) {

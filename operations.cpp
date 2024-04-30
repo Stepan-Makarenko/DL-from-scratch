@@ -1,22 +1,34 @@
 #include "operations.h"
 
 
-Matrix::Matrix(float val, int NIn, int MIn) : N(NIn), M(MIn) {
+Matrix::Matrix(float val, int NIn, int MIn) : N(NIn), strideN(MIn), M(MIn), strideM(1) {
     values = new float[N*M];
     for (int i = 0; i < N * M; ++i){
         values[i] = val;
     }
 }
 
-Matrix::Matrix(Matrix&& other) : values(other.values), N(other.N), M(other.M)  {
+Matrix::Matrix(Matrix&& other) : values(other.values), N(other.N), strideN(other.M), M(other.M), strideM(1)  {
     if (this != &other){
         other.values = nullptr;
         other.N = 0;
         other.M = 0;
+        other.strideN = 0;
+        other.strideM = 0;
     }
 }
 
-Matrix& Matrix::operator=(Matrix&& other) 
+
+Matrix::Matrix(const MatrixTransposedView& other)  : N(other.N), strideN(other.strideN), M(other.M), strideM(other.strideM)
+{
+    values = new float[N*M];
+    for (int i = 0; i < N * M; ++i){
+        values[i] = other.values[i];
+    }
+}
+
+
+Matrix& Matrix::operator=(Matrix&& other)
 {
     if (this == &other)
         return *this;
@@ -24,17 +36,21 @@ Matrix& Matrix::operator=(Matrix&& other)
     delete[] values;
     values = other.values;
     N = other.N;
+    strideN = other.strideN;
     M = other.M;
+    strideM = other.strideM;
 
     other.values = nullptr;
     other.N = 0;
+    other.strideN = 0;
     other.M = 0;
+    other.strideM = 0;
     return *this;
 }
 
-bool Matrix::operator==(Matrix& other) 
+bool Matrix::operator==(Matrix& other)
 {
-    if (N != other.N || M != other.M) {
+    if (N != other.N || M != other.M || strideN != other.strideN || strideM != other.strideM) {
         return false;
     }
     for (int i = 0; i < N * M; ++i) {
@@ -45,7 +61,7 @@ bool Matrix::operator==(Matrix& other)
     return true;
 }
 
-Matrix& Matrix::operator+=(const Matrix& other) 
+Matrix& Matrix::operator+=(const Matrix& other)
 {
     try {
         if (this->M != other.M && this->N != other.N && (other.M != 1 && other.N != 1)) {
@@ -58,26 +74,29 @@ Matrix& Matrix::operator+=(const Matrix& other)
         if (this->M == other.M && this->N == other.N){
             for (int i = 0; i < N * M; ++i)
             {
-                *(this->values + i / M * M + i % M) += *(other.values + i / M * M + i % M);
+                // matrix_i = i / M
+                // matrix_j = i % M
+                // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+                *(this->values + i / M * strideN + i % M * strideM) += *(other.values + i / M * strideN + i % M * strideM);
             }
         }
         else if (other.N == 1)
         {
             for (int i = 0; i < N * M; ++i)
             {
-                *(this->values + i / M * M + i % M) += *(other.values + i % M);
+                *(this->values + i / M * strideN + i % M * strideM) += *(other.values + i % M);
             }
         }
         else if (other.M == 1)
         {
             for (int i = 0; i < N * M; ++i)
             {
-                *(this->values + i / M + i % M * M) += *(other.values + i % M);
+                *(this->values + i / M * strideN + i % M * strideM) += *(other.values + i % M);
             }
         }
-        // is else occure? 
-        
-        
+        // is else occure?
+
+
     }
     catch (const exception& e) {
         // print the exception
@@ -86,60 +105,49 @@ Matrix& Matrix::operator+=(const Matrix& other)
     return *this;
 }
 
-Matrix::Matrix(initializer_list<float> list, int NIn, int MIn) : N(NIn), M(MIn)
+Matrix::Matrix(initializer_list<float> list, int NIn, int MIn) : N(NIn), strideN(MIn), M(MIn), strideM(1)
 {
     values = new float[N * M];
     memcpy(values, list.begin(), N * M * sizeof(float));
 }
 
-Matrix::Matrix(int NIn, int MIn) : N(NIn), M(MIn)
+Matrix::Matrix(int NIn, int MIn) : N(NIn), strideN(MIn), M(MIn), strideM(1)
 {
     values = new float[N*M];
     for (int i = 0; i < N * M; ++i)
     {
-        *(values + i / M * M + i % M) = (float)((rand() - RAND_MAX / 2) / (float)RAND_MAX);
+        *(values + i / M * strideN + i % M * strideM) = (float)((rand() - RAND_MAX / 2) / (float)RAND_MAX);
     }
 }
 
-Matrix Matrix::dot(Matrix &other)
+MatrixTransposedView Matrix::T() const
 {
-    
-    Matrix result(0, this->N, other.M); // retrun default value anyway
-    try {
-        if (this->M != other.N) {
-            throw runtime_error(
-                "Matrix multiplication with wrong dimensions");
-        }
-
-        // float result[this->N, other.M] = { 0 };
-        for (int i = 0; i < this->N; ++i)
-        {
-            for (int j = 0; j < other.M; ++j) 
-            {
-                for (int k = 0; k < this->M; ++k) 
-                {
-                    result.values[i * other.M + j] += (this->values[i * this->M + k] * other.values[k * other.M + j]);
-                    // cout << i * other.M + j << " " << i * this->M + k << " " << k * other.M + j << "\n";
-                }
-            }
-        }
-    }
-    catch (const exception& e) {
-        // print the exception
-        cout << "Exception " << e.what() << endl;
-    }
-    return result;
+    return MatrixTransposedView(*this);
 }
 
-void Matrix::printMatrix()
+void Matrix::printMatrix() const
 {
     // cout << N << " " << M << "\n";
-    for (int i = 0; i < N; ++i) 
+    for (int i = 0; i < N * M; ++i)
     {
-        for (int j = 0; j < M; ++j)
+        cout << values[i / M * strideN + i % M * strideM] << " ";
+        if (i % M == M - 1)
         {
-            cout << values[i * M + j] << " ";
+            cout << "\n";
         }
-        cout << "\n";
+    }
+}
+
+void MatrixTransposedView::printMatrix() const
+{
+    // cout << N << " " << M << "\n";
+    for (int i = 0; i < N * M; ++i)
+    {
+        // cout << this->matrix.values[i / M * strideN + i % M * strideM] << " ";
+        cout << values[i / M * strideN + i % M * strideM] << " ";
+        if (i % M == M - 1)
+        {
+            cout << "\n";
+        }
     }
 }
