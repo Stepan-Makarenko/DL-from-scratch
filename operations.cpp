@@ -1,52 +1,54 @@
 #include "operations.h"
 
 
-Matrix::Matrix(float val, int NIn, int MIn) : N(NIn), strideN(MIn), M(MIn), strideM(1) {
-    values = new float[N*M];
-    for (int i = 0; i < N * M; ++i){
-        values[i] = val;
-    }
+Matrix::Matrix(float val, int NIn, int MIn) : values(new float[NIn*MIn], default_delete<float[]>()), N(NIn), strideN(MIn), M(MIn), strideM(1) {
+    fill_n(values.get(), N * M, val);
 }
 
-Matrix::Matrix(Matrix&& other) : values(other.values), N(other.N), strideN(other.M), M(other.M), strideM(1)  {
-    if (this != &other){
-        other.values = nullptr;
-        other.N = 0;
-        other.M = 0;
-        other.strideN = 0;
-        other.strideM = 0;
-    }
-}
-
-
-Matrix::Matrix(const MatrixTransposedView& other)  : N(other.N), strideN(other.strideN), M(other.M), strideM(other.strideM)
+// assign refference to existing resource
+Matrix::Matrix(Matrix& other) : values(other.values), N(other.N), strideN(other.M), M(other.M), strideM(1)  {}
+// deep copy
+Matrix Matrix::copy() const
 {
-    values = new float[N*M];
-    for (int i = 0; i < N * M; ++i){
-        values[i] = other.values[i];
-    }
+    Matrix copy_matrix(N, M);
+    std::copy(&values[0], &values[0] + N * M, copy_matrix.values.get());
+    return copy_matrix;
 }
 
+// Matrix::Matrix(Matrix&& other) : values(other.values), N(other.N), strideN(other.M), M(other.M), strideM(1)  {
+//     if (this != &other){
+//         other.values = nullptr;
+//         other.N = 0;
+//         other.M = 0;
+//         other.strideN = 0;
+//         other.strideM = 0;
+//     }
+// }
 
-Matrix& Matrix::operator=(Matrix&& other)
-{
-    if (this == &other)
-        return *this;
 
-    delete[] values;
-    values = other.values;
-    N = other.N;
-    strideN = other.strideN;
-    M = other.M;
-    strideM = other.strideM;
+Matrix::Matrix(const MatrixTransposedView& other)  : values(other.values), N(other.N), strideN(other.strideN), M(other.M), strideM(other.strideM)
+{}
 
-    other.values = nullptr;
-    other.N = 0;
-    other.strideN = 0;
-    other.M = 0;
-    other.strideM = 0;
-    return *this;
-}
+
+// Matrix& Matrix::operator=(Matrix&& other)
+// {
+//     if (this == &other)
+//         return *this;
+
+//     delete[] values;
+//     values = other.values;
+//     N = other.N;
+//     strideN = other.strideN;
+//     M = other.M;
+//     strideM = other.strideM;
+
+//     other.values = nullptr;
+//     other.N = 0;
+//     other.strideN = 0;
+//     other.M = 0;
+//     other.strideM = 0;
+//     return *this;
+// }
 
 bool Matrix::operator==(Matrix& other)
 {
@@ -77,21 +79,21 @@ Matrix& Matrix::operator+=(const Matrix& other)
                 // matrix_i = i / M
                 // matrix_j = i % M
                 // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
-                *(this->values + i / M * strideN + i % M * strideM) += *(other.values + i / M * strideN + i % M * strideM);
+                this->values[i / M * strideN + i % M * strideM] += other.values[i / M * strideN + i % M * strideM];
             }
         }
         else if (other.N == 1)
         {
             for (int i = 0; i < N * M; ++i)
             {
-                *(this->values + i / M * strideN + i % M * strideM) += *(other.values + i % M);
+                this->values[i / M * strideN + i % M * strideM] += other.values[i % M];
             }
         }
         else if (other.M == 1)
         {
             for (int i = 0; i < N * M; ++i)
             {
-                *(this->values + i / M * strideN + i % M * strideM) += *(other.values + i % M);
+                this->values[i / M * strideN + i % M * strideM] += other.values[i % M];
             }
         }
         // is else occure?
@@ -105,19 +107,49 @@ Matrix& Matrix::operator+=(const Matrix& other)
     return *this;
 }
 
-Matrix::Matrix(initializer_list<float> list, int NIn, int MIn) : N(NIn), strideN(MIn), M(MIn), strideM(1)
+Matrix::Matrix(initializer_list<float> list, int NIn, int MIn) : values(new float[NIn*MIn], default_delete<float[]>()), N(NIn), strideN(MIn), M(MIn), strideM(1)
 {
-    values = new float[N * M];
-    memcpy(values, list.begin(), N * M * sizeof(float));
+    // values = new float[N * M];
+    std::copy(list.begin(), list.end(), values.get());
 }
 
-Matrix::Matrix(int NIn, int MIn) : N(NIn), strideN(MIn), M(MIn), strideM(1)
+Matrix::Matrix(vector<float> list, int NIn, int MIn) : values(new float[NIn*MIn], default_delete<float[]>()), N(NIn), strideN(MIn), M(MIn), strideM(1)
 {
-    values = new float[N*M];
+    std::copy(list.begin(), list.end(), values.get());
+}
+
+Matrix::Matrix(vector<vector<float>> list): N(list.size())
+{
+    if (N == 0)
+    {
+        values = nullptr;
+        return;
+    }
+
+    M = list.begin()->size();
+    strideN = M;
+    strideM = 1;
+    values = shared_ptr<float[]>(new float[N*M], default_delete<float[]>());
+
+    int row_idx = 0;
+    for (auto row: list)
+    {
+        std::copy(row.begin(), row.end(), &values[row_idx * M]);
+        ++row_idx;
+    }
+}
+
+Matrix::Matrix(int NIn, int MIn) : values(new float[NIn*MIn], default_delete<float[]>()), N(NIn), strideN(MIn), M(MIn), strideM(1)
+{
     for (int i = 0; i < N * M; ++i)
     {
-        *(values + i / M * strideN + i % M * strideM) = (float)((rand() - RAND_MAX / 2) / (float)RAND_MAX);
+        values[i / M * strideN + i % M * strideM] = (float)((rand() - RAND_MAX / 2) / (float)RAND_MAX);
     }
+}
+
+shared_ptr<float[]> const Matrix::getValues()
+{
+    return values;
 }
 
 MatrixTransposedView Matrix::T() const

@@ -11,6 +11,10 @@ int main() {
     m.printMatrix();
     std::cout << "Matrix l = " << std::endl;
     l.printMatrix();
+    Matrix k = m.copy();
+    m = l;
+    m.printMatrix();
+    k.printMatrix();
     Matrix d = m.dot(l);
     std::cout << "Matrix dot = " << std::endl;
     d.printMatrix();

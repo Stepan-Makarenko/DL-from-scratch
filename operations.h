@@ -10,6 +10,7 @@ Discribe common matrix operations like dot, skalar multiplication and others
 #include <time.h>
 #include <cfloat>
 #include <cstring>
+#include <memory>
 #include <initializer_list>
 
 using namespace std;
@@ -19,7 +20,7 @@ class MatrixTransposedView;
 class Matrix
 {
     friend class MatrixTransposedView;
-    float* values;
+    shared_ptr<float[]> values;
     public:
         // shape is accessible
         int N;
@@ -29,21 +30,38 @@ class Matrix
         // Default constructor
         Matrix() : values(nullptr), N(0), M(0) {};
         // Move semantic
-        Matrix(Matrix&& other);
+        // Matrix(Matrix&& other);
+        // Copy semantic
+        Matrix(Matrix& other);
+        Matrix copy() const;
         // Copy semantic for transposed
         Matrix(const MatrixTransposedView& other);
 
         Matrix(float val, int NIn, int MIn);
         Matrix(int NIn, int MIn);
         Matrix(initializer_list<float> list, int NIn, int MIn);
-        Matrix& operator=(Matrix&& other);
+        Matrix(vector<float> list, int NIn, int MIn);
+        Matrix(vector<vector<float>> list);
+        shared_ptr<float[]> const getValues();
+        // Matrix& operator=(Matrix&& other);
         bool operator==(Matrix& other);
         Matrix& operator+=(const Matrix& other);
         MatrixTransposedView T() const;
         void printMatrix() const;
 
+        template <typename Func>
+        Matrix apply(Func func) const
+        {
+            Matrix result(0, N, M);
+            for (int i = 0; i < N * M; ++i)
+            {
+                result.values[i] = func(values[i]);
+            }
+            return result;
+        }
+
         template <typename MatrixType>
-        Matrix dot(const MatrixType &other)
+        Matrix dot(const MatrixType &other) const
         {
 
             Matrix result(0, this->N, other.M); // retrun default value anyway
@@ -72,14 +90,14 @@ class Matrix
         ~Matrix()
         {
             // cout << "Delete(" << N << ", " << M << ")" << "\n";
-            delete[] values;
+            // delete[] values;
         }
 };
 
 class MatrixTransposedView
 {
     friend class Matrix;
-    const float* values;
+    const shared_ptr<float[]> values;
     public:
         // shape is accessible
         int N;
@@ -88,4 +106,30 @@ class MatrixTransposedView
         int strideM;
         MatrixTransposedView(const Matrix &m) : values(m.values), N(m.M), strideN(1), M(m.N), strideM(m.M) {};
         void printMatrix() const;
+        template <typename MatrixType>
+        Matrix dot(const MatrixType &other) const
+        {
+
+            Matrix result(0, this->N, other.M); // retrun default value anyway
+            try {
+                if (this->M != other.N) {
+                    throw runtime_error(
+                        "Matrix multiplication with wrong dimensions");
+                }
+
+                // float result[this->N, other.M] = { 0 };
+                for (int i = 0; i < result.N * result.M; ++i)
+                {
+                    for (int k = 0; k < this->M; ++k)
+                    {
+                        result.values[i / result.M * result.strideN + i % result.M * result.strideM] += (this->values[i / result.M * this->strideN + k * this->strideM] * other.values[k * other.strideN + i % result.M * other.strideM]);
+                    }
+                }
+            }
+            catch (const exception& e) {
+                // print the exception
+                cout << "Exception " << e.what() << endl;
+            }
+            return result;
+        }
 };
