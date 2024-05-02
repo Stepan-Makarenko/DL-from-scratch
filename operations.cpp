@@ -50,6 +50,11 @@ Matrix::Matrix(const MatrixTransposedView& other)  : values(other.values), N(oth
 //     return *this;
 // }
 
+const float& Matrix::operator()(int i, int j)
+{
+    return values[i * strideN + j * strideM];
+}
+
 bool Matrix::operator==(Matrix& other)
 {
     if (N != other.N || M != other.M || strideN != other.strideN || strideM != other.strideM) {
@@ -70,7 +75,7 @@ Matrix& Matrix::operator+=(const Matrix& other)
             throw runtime_error(
                 "Matrix sum with wrong dimensions");
         }
-        std::cout << "Get (" << other.N << ", " << other.M << ")" << endl;
+        // std::cout << "Get (" << other.N << ", " << other.M << ")" << endl;
 
         // float result[this->N, other.M] = { 0 };
         if (this->M == other.M && this->N == other.N){
@@ -106,6 +111,128 @@ Matrix& Matrix::operator+=(const Matrix& other)
     }
     return *this;
 }
+
+Matrix Matrix::operator+(const Matrix& other)
+{
+    Matrix result(0, N, M);
+    try {
+        if (this->M != other.M && this->N != other.N && (other.M != 1 && other.N != 1)) {
+            throw runtime_error(
+                "Matrix sum with wrong dimensions");
+        }
+
+        // float result[this->N, other.M] = { 0 };
+        if (this->M == other.M && this->N == other.N){
+            for (int i = 0; i < N * M; ++i)
+            {
+                // matrix_i = i / M
+                // matrix_j = i % M
+                // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+                result.values[i / M * strideN + i % M * strideM] = this->values[i / M * strideN + i % M * strideM] + other.values[i / M * strideN + i % M * strideM];
+            }
+        }
+        else if (other.N == 1)
+        {
+            for (int i = 0; i < N * M; ++i)
+            {
+                result.values[i / M * strideN + i % M * strideM] = this->values[i / M * strideN + i % M * strideM] + other.values[i % M];
+            }
+        }
+        else if (other.M == 1)
+        {
+            for (int i = 0; i < N * M; ++i)
+            {
+                result.values[i / M * strideN + i % M * strideM] = this->values[i / M * strideN + i % M * strideM] + other.values[i % M];
+            }
+        }
+        // is else occure?
+
+
+    }
+    catch (const exception& e) {
+        // print the exception
+        cout << "Exception " << e.what() << endl;
+    }
+    return result;
+}
+
+Matrix Matrix::operator*(const Matrix& other) const
+{
+    // asseert(this->N == other.N && this->M == other.M, std::format("Different shape matrixes in * operator #1 shape = ({}, {}), #2 shape = ({}, {})", this->N, this->M, other.N,other.M));
+    // asseert(this->N == other.N && this->M == other.M, "Different shape matrixes in * operator");
+
+    Matrix result(0, N, M);
+
+    try {
+        if (this->N != other.N || this->M != other.M) {
+            throw runtime_error(
+                "Matrix product with wrong dimensions");
+        }
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i] = this->values[i] * other.values[i];
+        }
+    }
+    catch (const exception& e) {
+        // print the exception
+        cout << "Exception " << e.what() << endl;
+    }
+    return result;
+}
+
+Matrix Matrix::operator*(const float mult) const
+{
+
+    Matrix result(0, N, M);
+    for (int i = 0; i < N * M; ++i)
+    {
+        result.values[i] = this->values[i] * mult;
+    }
+    return result;
+}
+
+Matrix Matrix::operator-(const Matrix& other) const
+{
+    Matrix result(0, N, M);
+
+    try {
+        if (this->N != other.N || this->M != other.M) {
+            throw runtime_error(
+                "Matrix product with wrong dimensions");
+        }
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i] = this->values[i] - other.values[i];
+        }
+    }
+    catch (const exception& e) {
+        // print the exception
+        cout << "Exception " << e.what() << endl;
+    }
+    return result;
+}
+
+Matrix Matrix::operator/(const Matrix& other) const
+{
+    Matrix result(0, N, M);
+
+    try {
+        if (this->N != other.N || this->M != other.M) {
+            throw runtime_error(
+                "Matrix product with wrong dimensions");
+        }
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i] = this->values[i] / (other.values[i] + 1e-6);
+        }
+    }
+    catch (const exception& e) {
+        // print the exception
+        cout << "Exception " << e.what() << endl;
+    }
+    return result;
+}
+
 
 Matrix::Matrix(initializer_list<float> list, int NIn, int MIn) : values(new float[NIn*MIn], default_delete<float[]>()), N(NIn), strideN(MIn), M(MIn), strideM(1)
 {
@@ -150,6 +277,16 @@ Matrix::Matrix(int NIn, int MIn) : values(new float[NIn*MIn], default_delete<flo
 shared_ptr<float[]> const Matrix::getValues()
 {
     return values;
+}
+
+float Matrix::mean() const
+{
+    float s = 0;
+    for (int i = 0; i < N * M; ++i)
+    {
+        s += values[i] / ( N * M );
+    }
+    return s;
 }
 
 MatrixTransposedView Matrix::T() const

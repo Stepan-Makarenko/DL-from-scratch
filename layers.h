@@ -22,6 +22,9 @@ class LinearLayer
         LinearLayer(initializer_list<float> weightsIn, initializer_list<float> biasIn, int NIn, int MIn);
         Matrix forward(const Matrix& x);
         Matrix backward(const Matrix& dy_dx);
+        void gradient_step(const float lr);
+        void print_weights();
+        void print_bias();
 
 };
 
@@ -34,5 +37,18 @@ class Sigmoid
         Sigmoid(): input() {};
         float _func(const float& x);
         Matrix forward(const Matrix& x);
-        // Matrix backward(const Matrix& dy_dx);
+        Matrix backward(const Matrix& dy_dx);
+};
+
+class CrossEntropyLoss
+{
+    friend class Matrix;
+    Matrix input;
+    Matrix target;
+
+    public:
+        CrossEntropyLoss(): input() {};
+        float _func(const float& pred, const int targetIn);
+        Matrix forward(const Matrix& x, const Matrix& targetIn);
+        Matrix backward();
 };

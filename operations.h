@@ -12,6 +12,8 @@ Discribe common matrix operations like dot, skalar multiplication and others
 #include <cstring>
 #include <memory>
 #include <initializer_list>
+#include <cassert>
+#include <format>
 
 using namespace std;
 
@@ -44,8 +46,15 @@ class Matrix
         Matrix(vector<vector<float>> list);
         shared_ptr<float[]> const getValues();
         // Matrix& operator=(Matrix&& other);
+        const float& operator()(int i, int j);
         bool operator==(Matrix& other);
         Matrix& operator+=(const Matrix& other);
+        Matrix operator+(const Matrix& other);
+        Matrix operator*(const Matrix& other) const;
+        Matrix operator*(const float mult) const;
+        Matrix operator-(const Matrix& other) const;
+        Matrix operator/(const Matrix& other) const;
+        float mean() const;
         MatrixTransposedView T() const;
         void printMatrix() const;
 
@@ -56,6 +65,18 @@ class Matrix
             for (int i = 0; i < N * M; ++i)
             {
                 result.values[i] = func(values[i]);
+            }
+            return result;
+        }
+
+        template <typename Func>
+        Matrix apply(const Matrix &other, Func func) const
+        {
+            // same dimensions ?? check
+            Matrix result(0, N, M);
+            for (int i = 0; i < N * M; ++i)
+            {
+                result.values[i] = func(values[i], other.values[i]);
             }
             return result;
         }
