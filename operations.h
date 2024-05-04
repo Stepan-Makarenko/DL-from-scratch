@@ -14,6 +14,8 @@ Discribe common matrix operations like dot, skalar multiplication and others
 #include <initializer_list>
 #include <cassert>
 #include <format>
+#include <stdexcept>
+#include <sstream>
 
 using namespace std;
 
@@ -107,6 +109,7 @@ class Matrix
             }
             return result;
         }
+        void checkMatrixCompatibility(const Matrix& other, const std::string prefix = "Matrix shapes are not compatible ") const;
 
         ~Matrix()
         {

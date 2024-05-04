@@ -1,6 +1,19 @@
 #include "operations.h"
 
 
+void Matrix::checkMatrixCompatibility(const Matrix& other, const std::string prefix) const {
+    // Case 1 equal size matrix N x M
+    // Case 2 op( (N, M), (1, M) )
+    // Case 3 op( (N, M), (N, 1) )
+    // Case 4 op( (N, M), (1, 1) )
+
+    if ( !( (this->N == other.N && this->M == other.M) || (this->N == other.N && 1 == other.M) || (1 == other.N && this->M == other.M) || (1 == other.N && 1 == other.M)) ) {
+        std::stringstream ss;
+        ss << prefix << " #1 shapes = (" << this->N << ", " << this->M << ")" << " 2# shapes = (" << other.N << ", " << other.M << ")\n";
+        throw:: std::runtime_error(ss.str());
+    }
+}
+
 Matrix::Matrix(float val, int NIn, int MIn) : values(new float[NIn*MIn], default_delete<float[]>()), N(NIn), strideN(MIn), M(MIn), strideM(1) {
     fill_n(values.get(), N * M, val);
 }
@@ -15,40 +28,8 @@ Matrix Matrix::copy() const
     return copy_matrix;
 }
 
-// Matrix::Matrix(Matrix&& other) : values(other.values), N(other.N), strideN(other.M), M(other.M), strideM(1)  {
-//     if (this != &other){
-//         other.values = nullptr;
-//         other.N = 0;
-//         other.M = 0;
-//         other.strideN = 0;
-//         other.strideM = 0;
-//     }
-// }
-
-
 Matrix::Matrix(const MatrixTransposedView& other)  : values(other.values), N(other.N), strideN(other.strideN), M(other.M), strideM(other.strideM)
 {}
-
-
-// Matrix& Matrix::operator=(Matrix&& other)
-// {
-//     if (this == &other)
-//         return *this;
-
-//     delete[] values;
-//     values = other.values;
-//     N = other.N;
-//     strideN = other.strideN;
-//     M = other.M;
-//     strideM = other.strideM;
-
-//     other.values = nullptr;
-//     other.N = 0;
-//     other.strideN = 0;
-//     other.M = 0;
-//     other.strideM = 0;
-//     return *this;
-// }
 
 const float& Matrix::operator()(int i, int j)
 {
@@ -70,112 +51,116 @@ bool Matrix::operator==(Matrix& other)
 
 Matrix& Matrix::operator+=(const Matrix& other)
 {
-    try {
-        if (this->M != other.M && this->N != other.N && (other.M != 1 && other.N != 1)) {
-            throw runtime_error(
-                "Matrix sum with wrong dimensions");
-        }
-        // std::cout << "Get (" << other.N << ", " << other.M << ")" << endl;
+    checkMatrixCompatibility(other, "Matrix sum with wrong dimensions ");
 
-        // float result[this->N, other.M] = { 0 };
-        if (this->M == other.M && this->N == other.N){
-            for (int i = 0; i < N * M; ++i)
-            {
-                // matrix_i = i / M
-                // matrix_j = i % M
-                // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
-                this->values[i / M * strideN + i % M * strideM] += other.values[i / M * strideN + i % M * strideM];
-            }
-        }
-        else if (other.N == 1)
+    // float result[this->N, other.M] = { 0 };
+    if (this->M == other.M && this->N == other.N){
+        for (int i = 0; i < N * M; ++i)
         {
-            for (int i = 0; i < N * M; ++i)
-            {
-                this->values[i / M * strideN + i % M * strideM] += other.values[i % M];
-            }
+            // matrix_i = i / M
+            // matrix_j = i % M
+            // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+            this->values[i / M * strideN + i % M * strideM] += other.values[i / M * strideN + i % M * strideM];
         }
-        else if (other.M == 1)
-        {
-            for (int i = 0; i < N * M; ++i)
-            {
-                this->values[i / M * strideN + i % M * strideM] += other.values[i % M];
-            }
-        }
-        // is else occure?
-
-
     }
-    catch (const exception& e) {
-        // print the exception
-        cout << "Exception " << e.what() << endl;
+    else if (this->M == other.M && this->N == 1)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            this->values[i / M * strideN + i % M * strideM] += other.values[i % M];
+        }
+    }
+    else if (1 == other.M && this->N == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            this->values[i % N * strideN + i / N * strideM] += other.values[i % N];
+        }
+    }
+    else // (1 == other.M && 1 == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            this->values[i % N * strideN + i / N * strideM] += other.values[0];
+        }
     }
     return *this;
 }
 
 Matrix Matrix::operator+(const Matrix& other)
 {
-    Matrix result(0, N, M);
-    try {
-        if (this->M != other.M && this->N != other.N && (other.M != 1 && other.N != 1)) {
-            throw runtime_error(
-                "Matrix sum with wrong dimensions");
-        }
-
-        // float result[this->N, other.M] = { 0 };
-        if (this->M == other.M && this->N == other.N){
-            for (int i = 0; i < N * M; ++i)
-            {
-                // matrix_i = i / M
-                // matrix_j = i % M
-                // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
-                result.values[i / M * strideN + i % M * strideM] = this->values[i / M * strideN + i % M * strideM] + other.values[i / M * strideN + i % M * strideM];
-            }
-        }
-        else if (other.N == 1)
+    checkMatrixCompatibility(other, "Matrix sum (+) with wrong dimensions ");
+    Matrix result = this->copy();
+    if (this->M == other.M && this->N == other.N){
+        for (int i = 0; i < N * M; ++i)
         {
-            for (int i = 0; i < N * M; ++i)
-            {
-                result.values[i / M * strideN + i % M * strideM] = this->values[i / M * strideN + i % M * strideM] + other.values[i % M];
-            }
+            // matrix_i = i / M
+            // matrix_j = i % M
+            // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+            result.values[i / M * strideN + i % M * strideM] += other.values[i / M * strideN + i % M * strideM];
         }
-        else if (other.M == 1)
-        {
-            for (int i = 0; i < N * M; ++i)
-            {
-                result.values[i / M * strideN + i % M * strideM] = this->values[i / M * strideN + i % M * strideM] + other.values[i % M];
-            }
-        }
-        // is else occure?
-
-
     }
-    catch (const exception& e) {
-        // print the exception
-        cout << "Exception " << e.what() << endl;
+    else if (this->M == other.M && this->N == 1)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i / M * strideN + i % M * strideM] += other.values[i % M];
+        }
+    }
+    else if (1 == other.M && this->N == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] += other.values[i % N];
+        }
+    }
+    else // (1 == other.M && 1 == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] += other.values[0];
+        }
     }
     return result;
 }
 
 Matrix Matrix::operator*(const Matrix& other) const
 {
-    // asseert(this->N == other.N && this->M == other.M, std::format("Different shape matrixes in * operator #1 shape = ({}, {}), #2 shape = ({}, {})", this->N, this->M, other.N,other.M));
-    // asseert(this->N == other.N && this->M == other.M, "Different shape matrixes in * operator");
-
-    Matrix result(0, N, M);
-
-    try {
-        if (this->N != other.N || this->M != other.M) {
-            throw runtime_error(
-                "Matrix product with wrong dimensions");
-        }
+    // assert(this->N == other.N && this->M == other.M, std::format("Different shape matrixes in * operator #1 shape = ({}, {}), #2 shape = ({}, {})", this->N, this->M, other.N,other.M));
+    // assert(this->N == other.N && this->M == other.M, "Different shape matrixes in * operator");
+    // assert(this->N == other.N && this->M == other.M);
+    // cout << format("Different shape matrixes in * operator #1 shape = ({}, {}), #2 shape = ({}, {})", this->N, this->M, other.N,other.M);
+    checkMatrixCompatibility(other, "Matrix prod (*) with wrong dimensions ");
+    Matrix result = this->copy();
+    if (this->M == other.M && this->N == other.N){
         for (int i = 0; i < N * M; ++i)
         {
-            result.values[i] = this->values[i] * other.values[i];
+            // matrix_i = i / M
+            // matrix_j = i % M
+            // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+            result.values[i / M * strideN + i % M * strideM] *= other.values[i / M * strideN + i % M * strideM];
         }
     }
-    catch (const exception& e) {
-        // print the exception
-        cout << "Exception " << e.what() << endl;
+    else if (this->M == other.M && this->N == 1)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i / M * strideN + i % M * strideM] *= other.values[i % M];
+        }
+    }
+    else if (1 == other.M && this->N == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] *= other.values[i % N];
+        }
+    }
+    else // (1 == other.M && 1 == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] *= other.values[0];
+        }
     }
     return result;
 }
@@ -193,42 +178,74 @@ Matrix Matrix::operator*(const float mult) const
 
 Matrix Matrix::operator-(const Matrix& other) const
 {
-    Matrix result(0, N, M);
-
-    try {
-        if (this->N != other.N || this->M != other.M) {
-            throw runtime_error(
-                "Matrix product with wrong dimensions");
-        }
+    checkMatrixCompatibility(other, "Matrix sub (-) with wrong dimensions ");
+    Matrix result = this->copy();
+    if (this->M == other.M && this->N == other.N){
         for (int i = 0; i < N * M; ++i)
         {
-            result.values[i] = this->values[i] - other.values[i];
+            // matrix_i = i / M
+            // matrix_j = i % M
+            // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+            result.values[i / M * strideN + i % M * strideM] -= other.values[i / M * strideN + i % M * strideM];
         }
     }
-    catch (const exception& e) {
-        // print the exception
-        cout << "Exception " << e.what() << endl;
+    else if (this->M == other.M && this->N == 1)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i / M * strideN + i % M * strideM] -= other.values[i % M];
+        }
+    }
+    else if (1 == other.M && this->N == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] -= other.values[i % N];
+        }
+    }
+    else // (1 == other.M && 1 == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] -= other.values[0];
+        }
     }
     return result;
 }
 
 Matrix Matrix::operator/(const Matrix& other) const
 {
-    Matrix result(0, N, M);
-
-    try {
-        if (this->N != other.N || this->M != other.M) {
-            throw runtime_error(
-                "Matrix product with wrong dimensions");
-        }
+    checkMatrixCompatibility(other, "Matrix divide (/) with wrong dimensions ");
+    Matrix result = this->copy();
+    if (this->M == other.M && this->N == other.N){
         for (int i = 0; i < N * M; ++i)
         {
-            result.values[i] = this->values[i] / (other.values[i] + 1e-6);
+            // matrix_i = i / M
+            // matrix_j = i % M
+            // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+            result.values[i / M * strideN + i % M * strideM] /= other.values[i / M * strideN + i % M * strideM] + 1e-6;
         }
     }
-    catch (const exception& e) {
-        // print the exception
-        cout << "Exception " << e.what() << endl;
+    else if (this->M == other.M && this->N == 1)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i / M * strideN + i % M * strideM] /= other.values[i % M] + 1e-6;
+        }
+    }
+    else if (1 == other.M && this->N == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] /= other.values[i % N] + 1e-6;
+        }
+    }
+    else // (1 == other.M && 1 == other.N)
+    {
+        for (int i = 0; i < N * M; ++i)
+        {
+            result.values[i % N * strideN + i / N * strideM] /= other.values[0] + 1e-6;
+        }
     }
     return result;
 }
