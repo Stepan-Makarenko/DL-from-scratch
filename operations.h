@@ -75,10 +75,76 @@ class Matrix
         Matrix apply(const Matrix &other, Func func) const
         {
             // same dimensions ?? check
+            checkMatrixCompatibility(other, "Matrix apply with wrong dimensions ");
             Matrix result(0, N, M);
-            for (int i = 0; i < N * M; ++i)
+            if (this->M == other.M && this->N == other.N){
+                for (int i = 0; i < N * M; ++i)
+                {
+                    // matrix_i = i / M
+                    // matrix_j = i % M
+                    // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+                    result.values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i / M * strideN + i % M * strideM]);
+                }
+            }
+            else if (this->M == other.M && this->N == 1)
             {
-                result.values[i] = func(values[i], other.values[i]);
+                for (int i = 0; i < N * M; ++i)
+                {
+                    result.values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i % M]);
+                }
+            }
+            else if (1 == other.M && this->N == other.N)
+            {
+                for (int i = 0; i < N * M; ++i)
+                {
+                    result.values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[i % N]);
+                }
+            }
+            else // (1 == other.M && 1 == other.N)
+            {
+                for (int i = 0; i < N * M; ++i)
+                {
+                    result.values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[0]);
+                }
+            }
+            return result;
+        }
+
+        template <typename Func>
+        Matrix applyInPlace(const Matrix &other, Func func) const
+        {
+            // same dimensions ?? check
+            checkMatrixCompatibility(other, "Matrix apply with wrong dimensions ");
+            Matrix result(0, N, M);
+            if (this->M == other.M && this->N == other.N){
+                for (int i = 0; i < N * M; ++i)
+                {
+                    // matrix_i = i / M
+                    // matrix_j = i % M
+                    // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
+                    values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i / M * strideN + i % M * strideM]);
+                }
+            }
+            else if (this->M == other.M && this->N == 1)
+            {
+                for (int i = 0; i < N * M; ++i)
+                {
+                    values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i % M]);
+                }
+            }
+            else if (1 == other.M && this->N == other.N)
+            {
+                for (int i = 0; i < N * M; ++i)
+                {
+                    values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[i % N]);
+                }
+            }
+            else // (1 == other.M && 1 == other.N)
+            {
+                for (int i = 0; i < N * M; ++i)
+                {
+                    values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[0]);
+                }
             }
             return result;
         }
