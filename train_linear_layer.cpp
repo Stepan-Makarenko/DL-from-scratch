@@ -128,15 +128,15 @@ int main()
     LinearLayer L2(5, 1);
     Sigmoid S, S2;
     CrossEntropyLoss LossFunc;
-    Matrix x, y1, y2, y3, y4, target, loss, grad_loss, grad_sigm, grad_l2, grad_sigm2;
+    Matrix2d x, y1, y2, y3, y4, target, loss, grad_loss, grad_sigm, grad_l2, grad_sigm2;
     int batch_size = 16;
 
     // Measure accuracy before train
     float true_preds = 0;
     for (int i = 0; i < trainX.size(); i += batch_size)
     {
-        x = Matrix(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
-        target = Matrix(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
+        x = Matrix2d(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
+        target = Matrix2d(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
 
         // grads not accumulated so in next call they will be rewrited
         // target.printMatrix();
@@ -158,8 +158,8 @@ int main()
     true_preds = 0;
     for (int i = 0; i < valX.size(); i += batch_size)
     {
-        x = Matrix(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
-        target = Matrix(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), min(batch_size, (int)valX.size() - i), 1);
+        x = Matrix2d(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
+        target = Matrix2d(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), min(batch_size, (int)valX.size() - i), 1);
 
         // grads not accumulated so in next call they will be rewrited
         // target.printMatrix();
@@ -184,8 +184,8 @@ int main()
         // cout << "Epoch = " << epoch << "\n";
         for (int i = 0; i < trainX.size(); i += batch_size)
         {
-            x = Matrix(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
-            target = Matrix(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
+            x = Matrix2d(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
+            target = Matrix2d(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
             // x.printMatrix();
             y1 = L1.forward(x);
             // y1.printMatrix();
@@ -230,8 +230,8 @@ int main()
     true_preds = 0;
     for (int i = 0; i < trainX.size(); i += batch_size)
     {
-        x = Matrix(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
-        target = Matrix(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
+        x = Matrix2d(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
+        target = Matrix2d(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
 
         // grads not accumulated so in next call they will be rewrited
         // target.printMatrix();
@@ -248,8 +248,8 @@ int main()
     true_preds = 0;
     for (int i = 0; i < valX.size(); i += batch_size)
     {
-        x = Matrix(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
-        target = Matrix(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), min(batch_size, (int)valX.size() - i), 1);
+        x = Matrix2d(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
+        target = Matrix2d(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), min(batch_size, (int)valX.size() - i), 1);
 
         // grads not accumulated so in next call they will be rewrited
         // y2 = S.forward(L1.forward(x));

@@ -1,20 +1,20 @@
 #include "layers.h"
 
 LinearLayer::LinearLayer(int NIn, int MIn): N(NIn), M(MIn) {
-    weights = Matrix(N, M);
-    bias = Matrix(1, M);
+    weights = Matrix2d(N, M);
+    bias = Matrix2d(1, M);
 }
 
 LinearLayer::LinearLayer(initializer_list<float> weightsIn, initializer_list<float> biasIn, int NIn, int MIn): N(NIn), M(MIn) {
-    weights = Matrix(weightsIn, N, M);
+    weights = Matrix2d(weightsIn, N, M);
     // cout << "weight init \n";
-    bias = Matrix(biasIn, 1, M);
+    bias = Matrix2d(biasIn, 1, M);
     // cout << "bias init \n";
 }
 
-Matrix LinearLayer::forward(const Matrix& x) {
+Matrix2d LinearLayer::forward(const Matrix2d& x) {
     input = x;
-    Matrix result(0, x.N, this->M);
+    Matrix2d result(0, x.N, this->M);
     try {
         if (x.M != this->N) {
             throw runtime_error(
@@ -33,11 +33,11 @@ Matrix LinearLayer::forward(const Matrix& x) {
     return result;
 }
 
-Matrix LinearLayer::backward(const Matrix& dy_dx)
+Matrix2d LinearLayer::backward(const Matrix2d& dy_dx)
 {
     dweights = input.T().dot(dy_dx);
-    dbias = Matrix(1, 1, input.N).dot(dy_dx);
-    Matrix dy_dinput = dy_dx.dot(weights.T());
+    dbias = Matrix2d(1, 1, input.N).dot(dy_dx);
+    Matrix2d dy_dinput = dy_dx.dot(weights.T());
     return dy_dinput;
 }
 
@@ -64,15 +64,15 @@ float Sigmoid::_func(const float& x)
     return 1.0 / (1 + exp(-x));
 }
 
-Matrix Sigmoid::forward(const Matrix& x)
+Matrix2d Sigmoid::forward(const Matrix2d& x)
 {
     input = x;
-    Matrix result(0, x.N, x.M);
+    Matrix2d result(0, x.N, x.M);
     result = x.apply([this](float x) { return this->_func(x); });
     return result;
 }
 
-Matrix Sigmoid::backward(const Matrix& dy_dx)
+Matrix2d Sigmoid::backward(const Matrix2d& dy_dx)
 {
     return dy_dx * input.apply([this](float x) { return (1 - this->_func(x)) * this->_func(x); });
 }
@@ -85,16 +85,16 @@ float CrossEntropyLoss::_func(const float& pred, const int target)
     return - target * log(pred + 1e-6) - (1 - target) * log(1 - pred + 1e-6);
 }
 
-Matrix CrossEntropyLoss::forward(const Matrix& x, const Matrix& targetIn)
+Matrix2d CrossEntropyLoss::forward(const Matrix2d& x, const Matrix2d& targetIn)
 {
     input = x;
     target = targetIn;
-    Matrix result(0, x.N, x.M);
+    Matrix2d result(0, x.N, x.M);
     result = x.apply(targetIn, [this](float x, float y) { return this->_func(x, y); });
     return result;
 }
 
-Matrix CrossEntropyLoss::backward()
+Matrix2d CrossEntropyLoss::backward()
 {
     return input.apply(target, [](float x, float y) { return (x - y) / (x * (1 - x) + 1e-6); });
 }
