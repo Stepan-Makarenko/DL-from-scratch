@@ -17,7 +17,7 @@ int main() {
     std::cout << (D2 == C2) << std::endl;
     D2.printMatrix();
     // cout << "\n";
-    // D2.T().printMatrix();
+    D2.T().printMatrix();
 
     Matrix3d<2> A3({10, 20}, {1, 2});
     Matrix3d<2> B3({7, -6}, {1, 2});
