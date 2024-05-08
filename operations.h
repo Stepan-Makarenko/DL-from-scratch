@@ -20,7 +20,7 @@ Discribe common matrix operations like dot, skalar multiplication and others
 using namespace std;
 
 class Matrix2dTransposedView;
-class Matrix3dTransposedView;
+template <int MatrixDim> class Matrix3dTransposedView;
 
 class Matrix2d
 {
@@ -226,17 +226,18 @@ class Matrix2dTransposedView
 template <int MatrixDim>
 class Matrix3d
 {
-    friend class Matrix3dTransposedView;
+    friend class Matrix3dTransposedView<MatrixDim>;
     shared_ptr<float[]> values;
     public:
         // shape is accessible
         shared_ptr<int[]> shape; // store N x C x M
         shared_ptr<int[]> strides;
+        shared_ptr<int[]> stridesDenom; // denoms to get index from raw iterator i
         int dim;
         // Default constructor
-        Matrix3d() : values(nullptr), shape(nullptr), strides(nullptr), dim(0) {};
+        Matrix3d() : values(nullptr), shape(nullptr), strides(nullptr), stridesDenom(nullptr), dim(0) {};
         // Copy semantic
-        Matrix3d(Matrix3d& other) : values(other.values), shape(other.shape), strides(other.strides), dim(other.dim) {};
+        Matrix3d(Matrix3d& other) : values(other.values), shape(other.shape), strides(other.strides), stridesDenom(other.stridesDenom), dim(other.dim) {};
         Matrix3d copy() const
         {
             Matrix3d copyMatrix(shape);
@@ -259,9 +260,17 @@ class Matrix3d
         {
             dim = MatrixDim;
             shape.reset(new int[MatrixDim], default_delete<int[]>());
+            std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
             strides.reset(new int[MatrixDim], default_delete<int[]>());
-            int size = getSize();
-            values.reset(new float[size], default_delete<float[]>());
+            stridesDenom.reset(new int[MatrixDim], default_delete<int[]>());
+            values.reset(new float[getSize()], default_delete<float[]>());
+            int initStride = 1;
+            for (int i = MatrixDim - 1; i > -1; --i)
+            {
+                strides[i] = initStride;
+                stridesDenom[i] = initStride;
+                initStride *= shape[i];
+            }
         }
 
         template <int OtherDim>
@@ -337,16 +346,7 @@ class Matrix3d
         Matrix3d(const int (&shapeIn)[MatrixDim])
         {
             initializeShapesAndAllocateMemory(shapeIn);
-            std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
-            int size = this->getSize();
-            values.reset(new float[size]);
-            int initStride = 1;
-            for (int i = MatrixDim - 1; i > -1; --i)
-            {
-                strides[i] = initStride;
-                initStride *= shape[i];
-            }
-            for (int i = 0; i < size; ++i)
+            for (int i = 0; i < getSize(); ++i)
             {
                 values[i] = (float)((rand() - RAND_MAX / 2) / (float)RAND_MAX);
             }
@@ -354,16 +354,7 @@ class Matrix3d
         Matrix3d(float val, const int (&shapeIn)[MatrixDim])
         {
             initializeShapesAndAllocateMemory(shapeIn);
-            std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
-            int size = this->getSize();
-            values.reset(new float[size]);
-            int initStride = 1;
-            for (int i = MatrixDim - 1; i > -1; --i)
-            {
-                strides[i] = initStride;
-                initStride *= shape[i];
-            }
-            for (int i = 0; i < size; ++i)
+            for (int i = 0; i < getSize(); ++i)
             {
                 values[i] = val;
             }
@@ -371,30 +362,12 @@ class Matrix3d
         Matrix3d(initializer_list<float> list, const int (&shapeIn)[MatrixDim])
         {
             initializeShapesAndAllocateMemory(shapeIn);
-            std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
-            int size = this->getSize();
-            values.reset(new float[size]);
             std::copy(list.begin(), list.end(), values.get());
-            int initStride = 1;
-            for (int i = MatrixDim - 1; i > -1; --i)
-            {
-                strides[i] = initStride;
-                initStride *= shape[i];
-            }
         }
         Matrix3d(vector<float> list, const float (&shapeIn)[MatrixDim])
         {
             initializeShapesAndAllocateMemory(shapeIn);
-            std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
-            int size = this->getSize();
-            values.reset(new float[size]);
             std::copy(list.begin(), list.end(), values.get());
-            int initStride = 1;
-            for (int i = MatrixDim - 1; i > -1; --i)
-            {
-                strides[i] = initStride;
-                initStride *= shape[i];
-            }
         }
 
         explicit Matrix3d(vector<vector<float>> list)
@@ -503,7 +476,7 @@ class Matrix3d
         }
         // float mean() const;
 
-        Matrix3dTransposedView T() const;
+        Matrix3dTransposedView<MatrixDim> T() const;
 
         // template <typename Func>
         // Matrix2d apply(Func func) const
@@ -521,7 +494,12 @@ class Matrix3d
         {
             // same dimensions ?? check
             checkMatrixCompatibility(other, "Matrix2d apply with wrong dimensions ");
-            Matrix3d result(0, this->shape);
+            int resultShape[MatrixDim];
+            for (int i = 0; i < MatrixDim; ++i)
+            {
+                resultShape[i] = shape[i];
+            }
+            Matrix3d<MatrixDim> result(0, resultShape);
             switch ( OtherDim )
             {
                 case MatrixDim:
@@ -628,20 +606,20 @@ class Matrix3d
                     int indOther = 0;
                     for (int d = 0; d < MatrixDim; ++d)
                     {
-                        indResult += ((i / result.strides[d]) % result.shape[d]) * result.strides[d];
+                        indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
                         if (d < MatrixDim - 2)
                         {
-                            indThis += ((i / this->strides[d]) % this->shape[d]) * this->strides[d];
+                            indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
                         }
                         if (d < OtherDim - 2)
                         {
-                            indOther += ((i / other.strides[d]) % other.shape[d]) * other.strides[d];
+                            indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
                         }
                     }
                     for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)
                     {
                         // cout << indResult << " " << indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1] << " " << indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
-                        result.values[indResult] += (this->values[indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1]]);
+                        result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1]]);
                     }
                 }
             }
@@ -660,10 +638,10 @@ class Matrix3d
 };
 
 
-
+template <int MatrixDim>
 class Matrix3dTransposedView
 {
-    template <int MatrixDim> friend class Matrix3d;
+    friend class Matrix3d<MatrixDim>;
     const shared_ptr<float[]> values;
     public:
         // shape is accessible
@@ -673,7 +651,6 @@ class Matrix3dTransposedView
         shared_ptr<int[]> stridesDenom;
         int dim;
 
-        template <int MatrixDim>
         Matrix3dTransposedView(const Matrix3d<MatrixDim> &m) : values(m.values), dim(MatrixDim) {
             static_assert(MatrixDim > 1, "Dimension <2 in transpose operation");
             shape.reset(new int[dim], default_delete<int[]>());
@@ -729,36 +706,58 @@ class Matrix3dTransposedView
                 }
             }
         }
-        // template <typename MatrixType>
-        // Matrix2d dot(const MatrixType &other) const
-        // {
+        template <template<int> class MatrixType, int OtherDim>
+        Matrix3dTransposedView<MatrixDim> dot(const MatrixType<OtherDim>& other) const
+        {
+            // should check something befor TODO
+            static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2, "Dimension mismatch for dot");
+            int resultShape[MatrixDim];
+            for (int i = 0; i < MatrixDim - 1; ++i)
+            {
+                resultShape[i] = shape[i];
+            }
+            resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
 
-        //     Matrix2d result(0, this->N, other.M); // retrun default value anyway
-        //     try {
-        //         if (this->M != other.N) {
-        //             throw runtime_error(
-        //                 "Matrix2d multiplication with wrong dimensions");
-        //         }
-
-        //         // float result[this->N, other.M] = { 0 };
-        //         for (int i = 0; i < result.N * result.M; ++i)
-        //         {
-        //             for (int k = 0; k < this->M; ++k)
-        //             {
-        //                 result.values[i / result.M * result.strideN + i % result.M * result.strideM] += (this->values[i / result.M * this->strideN + k * this->strideM] * other.values[k * other.strideN + i % result.M * other.strideM]);
-        //             }
-        //         }
-        //     }
-        //     catch (const exception& e) {
-        //         // print the exception
-        //         cout << "Exception " << e.what() << endl;
-        //     }
-        //     return result;
-        // }
+            Matrix3d result(0, resultShape); // retrun default value anyway
+            try {
+                if (this->shape[OtherDim - 1] != other.shape[OtherDim - 2]) {
+                    throw runtime_error(
+                        "Matrix2d multiplication with wrong dimensions");
+                }
+                for (int i = 0; i < result.getSize(); ++i)
+                {
+                    int indResult = 0;
+                    int indThis = 0;
+                    int indOther = 0;
+                    for (int d = 0; d < MatrixDim; ++d)
+                    {
+                        indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
+                        if (d < MatrixDim - 2)
+                        {
+                            indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
+                        }
+                        if (d < OtherDim - 2)
+                        {
+                            indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
+                        }
+                    }
+                    for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)
+                    {
+                        // cout << indResult << " " << indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1] << " " << indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
+                        result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1]]);
+                    }
+                }
+            }
+            catch (const exception& e) {
+                // print the exception
+                cout << "Exception " << e.what() << endl;
+            }
+            return result;
+        }
 };
 
 template <int MatrixDim>
-Matrix3dTransposedView Matrix3d<MatrixDim>::T() const
+Matrix3dTransposedView<MatrixDim> Matrix3d<MatrixDim>::T() const
 {
     return Matrix3dTransposedView(*this);
 }

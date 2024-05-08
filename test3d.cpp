@@ -29,15 +29,18 @@ int main() {
     A3.printMatrix();
 
 
-    // cout << "start FF layer" << "\n";
+    cout << "start FF layer" << "\n";
     // LinearLayer L1({1, 2, 3, 4, 5, 6}, {7, 8, 9}, 2, 3);
-    // Matrix A4({1, 2}, 1, 2);
+    Matrix3d<2> LW({1, 2, 3, 4, 5, 6}, {2, 3});
+    Matrix3d<2> LB({7, 8, 9}, {1, 3});
+    Matrix3d<2> A4({1, 2}, {1, 2});
     // Matrix D4 = L1.forward(A4);
+    Matrix3d<2> D4 = A4.dot(LW) + LB;
 
-    // Matrix C4({16, 20, 24}, 1, 3);
+    Matrix3d<2> C4({16, 20, 24}, {1, 3});
 
-    // std::cout << (D4 == C4) << std::endl;
-    // D4.printMatrix();
+    std::cout << (D4 == C4) << std::endl;
+    D4.printMatrix();
 
     // Matrix A5({1, 2 ,3, 4, 5, 6}, 2, 3);
     // Matrix B5 = A5.T();
