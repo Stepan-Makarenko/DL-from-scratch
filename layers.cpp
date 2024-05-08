@@ -1,22 +1,22 @@
 #include "layers.h"
 
 LinearLayer::LinearLayer(int NIn, int MIn): N(NIn), M(MIn) {
-    weights = Matrix2d(N, M);
-    bias = Matrix2d(1, M);
+    weights = Matrix3d<2>({N, M});
+    bias = Matrix3d<2>({1, M});
 }
 
 LinearLayer::LinearLayer(initializer_list<float> weightsIn, initializer_list<float> biasIn, int NIn, int MIn): N(NIn), M(MIn) {
-    weights = Matrix2d(weightsIn, N, M);
+    weights = Matrix3d<2>(weightsIn, {N, M});
     // cout << "weight init \n";
-    bias = Matrix2d(biasIn, 1, M);
+    bias = Matrix3d<2>(biasIn, {1, M});
     // cout << "bias init \n";
 }
 
-Matrix2d LinearLayer::forward(const Matrix2d& x) {
+Matrix3d<2> LinearLayer::forward(const Matrix3d<2>& x) {
     input = x;
-    Matrix2d result(0, x.N, this->M);
+    Matrix3d<2> result(0, {x.shape[0], this->M});
     try {
-        if (x.M != this->N) {
+        if (x.shape[1] != this->N) {
             throw runtime_error(
                 "LinearLayer with wrong dimensions");
         }
@@ -33,11 +33,11 @@ Matrix2d LinearLayer::forward(const Matrix2d& x) {
     return result;
 }
 
-Matrix2d LinearLayer::backward(const Matrix2d& dy_dx)
+Matrix3d<2> LinearLayer::backward(const Matrix3d<2>& dy_dx)
 {
     dweights = input.T().dot(dy_dx);
-    dbias = Matrix2d(1, 1, input.N).dot(dy_dx);
-    Matrix2d dy_dinput = dy_dx.dot(weights.T());
+    dbias = Matrix3d<2>(1, {1, input.shape[0]}).dot(dy_dx);
+    Matrix3d<2> dy_dinput = dy_dx.dot(weights.T());
     return dy_dinput;
 }
 

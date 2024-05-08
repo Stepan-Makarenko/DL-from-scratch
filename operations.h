@@ -245,7 +245,7 @@ class Matrix3d
             return copyMatrix;
         }
         // // Copy semantic for transposed
-        // Matrix2d(const Matrix2dTransposedView& other);
+        Matrix3d(const Matrix3dTransposedView<MatrixDim>& other) : values(other.values), shape(other.shape), strides(other.strides), stridesDenom(other.stridesDenom), dim(other.dim) {};
 
         // utility
         int getSize() const
@@ -455,7 +455,12 @@ class Matrix3d
         }
         Matrix3d operator*(const float mul) const
         {
-            Matrix3d result(this->shape);
+            int resultShape[MatrixDim];
+            for (int i = 0; i < MatrixDim; ++i)
+            {
+                resultShape[i] = shape[i];
+            }
+            Matrix3d result(resultShape);
             for (int i = 0; i < this->getSize(); i++)
             {
                 result.values[i] = this->values[i];
