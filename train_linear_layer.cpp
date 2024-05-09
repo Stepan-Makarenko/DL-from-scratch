@@ -124,19 +124,19 @@ int main()
     // }
 
     // Initialize dnn
-    LinearLayer L1(13, 5);
-    LinearLayer L2(5, 1);
-    Sigmoid S, S2;
-    CrossEntropyLoss LossFunc;
-    Matrix2d x, y1, y2, y3, y4, target, loss, grad_loss, grad_sigm, grad_l2, grad_sigm2;
+    LinearLayer<2> L1(13, 5);
+    LinearLayer<2> L2(5, 1);
+    Sigmoid<2> S, S2;
+    CrossEntropyLoss<2> LossFunc;
+    Matrix3d<2> x, y1, y2, y3, y4, target, loss, grad_loss, grad_sigm, grad_l2, grad_sigm2;
     int batch_size = 16;
 
     // Measure accuracy before train
     float true_preds = 0;
     for (int i = 0; i < trainX.size(); i += batch_size)
     {
-        x = Matrix2d(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
-        target = Matrix2d(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
+        x = Matrix3d<2>(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
+        target = Matrix3d<2>(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), {min(batch_size, (int)trainX.size() - i), 1});
 
         // grads not accumulated so in next call they will be rewrited
         // target.printMatrix();
@@ -147,7 +147,7 @@ int main()
         // y2.printMatrix();
         // cout << "Targets = \n";
         // target.printMatrix();
-        for (int j = 0; j < target.N; ++j)
+        for (int j = 0; j < target.shape[0]; ++j)
         {
             true_preds += abs(y2(0, j) - target(0, j)) < 0.5;
         }
@@ -158,8 +158,8 @@ int main()
     true_preds = 0;
     for (int i = 0; i < valX.size(); i += batch_size)
     {
-        x = Matrix2d(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
-        target = Matrix2d(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), min(batch_size, (int)valX.size() - i), 1);
+        x = Matrix3d<2>(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
+        target = Matrix3d<2>(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), {min(batch_size, (int)valX.size() - i), 1});
 
         // grads not accumulated so in next call they will be rewrited
         // target.printMatrix();
@@ -170,7 +170,7 @@ int main()
         // y2.printMatrix();
         // cout << "Targets = \n";
         // target.printMatrix();
-        for (int j = 0; j < target.N; ++j)
+        for (int j = 0; j < target.shape[0]; ++j)
         {
             true_preds += abs(y2(0, j) - target(0, j)) < 0.5;
         }
@@ -184,8 +184,8 @@ int main()
         // cout << "Epoch = " << epoch << "\n";
         for (int i = 0; i < trainX.size(); i += batch_size)
         {
-            x = Matrix2d(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
-            target = Matrix2d(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
+            x = Matrix3d<2>(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
+            target = Matrix3d<2>(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), {min(batch_size, (int)trainX.size() - i), 1});
             // x.printMatrix();
             y1 = L1.forward(x);
             // y1.printMatrix();
@@ -230,15 +230,15 @@ int main()
     true_preds = 0;
     for (int i = 0; i < trainX.size(); i += batch_size)
     {
-        x = Matrix2d(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
-        target = Matrix2d(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), min(batch_size, (int)trainX.size() - i), 1);
+        x = Matrix3d<2>(vector<vector<float>>(trainX.begin() + i, min(trainX.end(), trainX.begin() + (i + batch_size))));
+        target = Matrix3d<2>(vector<float>(trainY.begin() + i, min(trainY.end(), trainY.begin() + (i + batch_size))), {min(batch_size, (int)trainX.size() - i), 1});
 
         // grads not accumulated so in next call they will be rewrited
         // target.printMatrix();
         // y2 = S.forward(L1.forward(x));
         y2 = S2.forward(L2.forward(S.forward(L1.forward(x))));
         // cout << target.N << " " << target.M << "\n";
-        for (int j = 0; j < target.N; ++j)
+        for (int j = 0; j < target.shape[0]; ++j)
         {
             true_preds += abs(y2(0, j) - target(0, j)) < 0.5;
         }
@@ -248,13 +248,13 @@ int main()
     true_preds = 0;
     for (int i = 0; i < valX.size(); i += batch_size)
     {
-        x = Matrix2d(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
-        target = Matrix2d(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), min(batch_size, (int)valX.size() - i), 1);
+        x = Matrix3d<2>(vector<vector<float>>(valX.begin() + i, min(valX.end(), valX.begin() + (i + batch_size))));
+        target = Matrix3d<2>(vector<float>(valY.begin() + i, min(valY.end(), valY.begin() + (i + batch_size))), {min(batch_size, (int)valX.size() - i), 1});
 
         // grads not accumulated so in next call they will be rewrited
         // y2 = S.forward(L1.forward(x));
         y2 = S2.forward(L2.forward(S.forward(L1.forward(x))));
-        for (int j = 0; j < target.N; ++j)
+        for (int j = 0; j < target.shape[0]; ++j)
         {
             true_preds += abs(y2(0, j) - target(0, j)) < 0.5;
         }

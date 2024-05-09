@@ -30,26 +30,34 @@ int main() {
 
 
     cout << "start FF layer" << "\n";
-    LinearLayer L1({1, 2, 3, 4, 5, 6}, {7, 8, 9}, 2, 3);
+    LinearLayer<2> L1({1, 2, 3, 4, 5, 6}, {7, 8, 9}, 2, 3);
     // Matrix3d<2> LW({1, 2, 3, 4, 5, 6}, {2, 3});
     // Matrix3d<2> LB({7, 8, 9}, {1, 3});
-    Matrix3d<2> A4({1, 2}, {1, 2});
+    Matrix3d<2> A4({1, 2, 3, 4}, {2, 2});
     Matrix3d<2> D4 = L1.forward(A4);
     // Matrix3d<2> D4 = A4.dot(LW) + LB;
 
-    Matrix3d<2> C4({16, 20, 24}, {1, 3});
+    Matrix3d<2> C4({16, 20, 24, 26, 34, 42}, {2, 3});
 
     std::cout << (D4 == C4) << std::endl;
     D4.printMatrix();
 
-    // Matrix A5({1, 2 ,3, 4, 5, 6}, 2, 3);
-    // Matrix B5 = A5.T();
-    // B5.printMatrix();
-    // Matrix D5 = A5.dot(A5.T());
+    Matrix3d<2> A5({1, 2 ,3, 4, 5, 6}, {2, 3});
+    A5.printMatrix();
+    Matrix3d<2> B5 = A5.T();
+    B5.printMatrix();
+    Matrix3d<2> D5 = A5.dot(A5.T());
+    Matrix3d<2> E5 = A5.T().dot(A5);
 
-    // Matrix C5({14, 32, 32, 77}, 2, 2);
-    // std::cout << (D5 == C5) << std::endl;
-    // D5.printMatrix();
+    Matrix3d<2> C5({14, 32, 32, 77}, {2, 2});
+    Matrix3d<2> F5({17, 22, 27, 22, 29, 36, 27, 36, 45}, {3, 3});
+    std::cout << (D5 == C5) << std::endl;
+    std::cout << (E5 == F5) << std::endl;
+    D5.printMatrix();
+    cout << "\n";
+    E5.printMatrix();
+    cout << "\n";
+    F5.printMatrix();
 
 
 }

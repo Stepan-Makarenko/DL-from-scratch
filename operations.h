@@ -329,15 +329,36 @@ class Matrix3d
         }
         void printMatrix() const
         {
-            for (int i = 0; i < getSize(); ++i)
+            // for (int i = 0; i < getSize(); ++i)
+            // {
+            //     cout << values[i] << " ";
+            //     for (int d = 0; d < MatrixDim-1; ++d)
+            //     {
+            //         if (i % strides[d] == strides[d] - 1)
+            //         {
+            //             cout << "\n";
+            //         }
+            //     }
+            // }
+            int printInd;
+            bool newline = false;
+            for (int i = 0; i < this->getSize(); ++i)
             {
-                cout << values[i] << " ";
-                for (int d = 0; d < MatrixDim-1; ++d)
+                printInd = 0;
+                newline = false;
+                for (int d = 0; d < dim; ++d)
                 {
-                    if (i % strides[d] == strides[d] - 1)
-                    {
-                        cout << "\n";
+                    printInd += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                    if (d < dim - 1) {
+                        newline |= i % stridesDenom[d] == stridesDenom[d] - 1;
                     }
+                }
+                // cout << i << " " << printInd << " " << strides[1]  << " " << stridesDenom[1] << " " << shape[1] << "\n";
+                cout << values[printInd] << " ";
+                // cout << values[printInd] << " ";
+                if (newline)
+                {
+                    cout << "\n";
                 }
             }
         }
@@ -364,7 +385,7 @@ class Matrix3d
             initializeShapesAndAllocateMemory(shapeIn);
             std::copy(list.begin(), list.end(), values.get());
         }
-        Matrix3d(vector<float> list, const float (&shapeIn)[MatrixDim])
+        Matrix3d(vector<float> list, const int (&shapeIn)[MatrixDim])
         {
             initializeShapesAndAllocateMemory(shapeIn);
             std::copy(list.begin(), list.end(), values.get());
@@ -376,7 +397,7 @@ class Matrix3d
             int d1 = list.size();
             int d2 = list.empty() ? 0 : list[0].size();
             int shapeIn[2] = {d1, d2};
-            initializeShapesAndAllocateMemory(&shapeIn);
+            initializeShapesAndAllocateMemory(shapeIn);
             for (int i = 0; i < d1; ++i) {
                 for (int j = 0; j < d2; ++j) {
                     values[i * strides[0] + j * strides[1]] = list[i][j];
@@ -392,7 +413,7 @@ class Matrix3d
             int d2 = list.empty() ? 0 : list[0].size();
             int d3 = (d2 == 0 || list[0].empty()) ? 0 : list[0][0].size();
             int shapeIn[3] = {d1, d2, d3};
-            initializeShapesAndAllocateMemory(&shapeIn);
+            initializeShapesAndAllocateMemory(shapeIn);
             for (int i = 0; i < d1; ++i) {
                 for (int j = 0; j < d2; ++j) {
                     for (int k = 0; k < d3; ++k) {
@@ -422,13 +443,29 @@ class Matrix3d
                 {
                     return false;
                 }
-                if (strides[i] != other.strides[i])
-                {
-                    return false;
-                }
+                // We don't need strides equality
+                // if (strides[i] != other.strides[i])
+                // {
+                //     return false;
+                // }
             }
+
+            int thisCompareInd = 0;
+            int otherCompareInd = 0;
             for (int i = 0; i < this->getSize(); ++i) {
-                if (abs(values[i] - other.values[i]) > 0.0001) { // Float comparison?
+                // if (abs(values[i] - other.values[i]) > 0.0001) { // Float comparison?
+                //     return false;
+                // }
+                thisCompareInd = 0;
+                otherCompareInd = 0;
+                for (int d = 0; d < dim; ++d)
+                {
+                    thisCompareInd += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                    otherCompareInd += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
+                }
+                if (abs(values[thisCompareInd] - other.values[otherCompareInd]) > 0.0001) { // Float comparison?
+                    cout << thisCompareInd << " " << otherCompareInd << "\n";
+                    cout << values[thisCompareInd] << " " << other.values[otherCompareInd] << "\n";
                     return false;
                 }
             }
@@ -437,20 +474,20 @@ class Matrix3d
         template <int OtherDim>
         Matrix3d& operator+=(const Matrix3d<OtherDim>& other)
         {
-            checkMatrixCompatibility(other, "Matrix2d sum (+) with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d op (+) with wrong dimensions ");
             applyInPlace(other, [](float a, float b){ return a + b; });
             return *this;
         }
         template <int OtherDim>
         Matrix3d operator+(const Matrix3d<OtherDim>& other) const
         {
-            checkMatrixCompatibility(other, "Matrix2d sum (+) with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d op (+) with wrong dimensions ");
             return apply(other, [](float a, float b){ return a + b; });
         }
         template <int OtherDim>
         Matrix3d operator*(const Matrix3d<OtherDim>& other) const
         {
-            checkMatrixCompatibility(other, "Matrix2d sum (*) with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d op (*) with wrong dimensions ");
             return apply(other, [](float a, float b){ return a * b; });
         }
         Matrix3d operator*(const float mul) const
@@ -463,36 +500,41 @@ class Matrix3d
             Matrix3d result(resultShape);
             for (int i = 0; i < this->getSize(); i++)
             {
-                result.values[i] = this->values[i];
+                result.values[i] = this->values[i] * mul;
             }
             return result;
         }
         template <int OtherDim>
         Matrix3d operator-(const Matrix3d<OtherDim>& other) const
         {
-            checkMatrixCompatibility(other, "Matrix2d sum (-) with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d op (-) with wrong dimensions ");
             return apply(other, [](float a, float b){ return a - b; });
         }
         template <int OtherDim>
         Matrix3d operator/(const Matrix3d<OtherDim>& other) const
         {
-            checkMatrixCompatibility(other, "Matrix2d sum (/) with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d op (/) with wrong dimensions ");
             return apply(other, [](float a, float b){ return a / (b + 1e-6); });
         }
         // float mean() const;
 
         Matrix3dTransposedView<MatrixDim> T() const;
 
-        // template <typename Func>
-        // Matrix2d apply(Func func) const
-        // {
-        //     Matrix2d result(0, N, M);
-        //     for (int i = 0; i < N * M; ++i)
-        //     {
-        //         result.values[i] = func(values[i]);
-        //     }
-        //     return result;
-        // }
+        template <typename Func>
+        Matrix3d apply(Func func) const
+        {
+            int resultShape[MatrixDim];
+            for (int i = 0; i < MatrixDim; ++i)
+            {
+                resultShape[i] = shape[i];
+            }
+            Matrix3d<MatrixDim> result(0, resultShape);
+            for (int i = 0; i < getSize(); ++i)
+            {
+                result.values[i] = func(values[i]);
+            }
+            return result;
+        }
 
         template <typename Func, int OtherDim>
         Matrix3d apply(const Matrix3d<OtherDim> &other, Func func) const
@@ -514,8 +556,8 @@ class Matrix3d
                         int indOther = 0;
                         for (int d = 0; d < MatrixDim; ++d)
                         {
-                            indThis += ((i / strides[d]) % shape[d]) * strides[d];
-                            indOther += (((i / strides[d]) % shape[d]) * strides[d]) % other.shape[d];
+                            indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                            indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
                         }
                         result.values[indThis] = func(values[indThis], other.values[indOther]);
                     }
@@ -523,12 +565,12 @@ class Matrix3d
                 case MatrixDim - 1:
                     for (int i = 0; i < this->getSize(); ++i)
                     {
-                        int indThis = ((i / strides[0]) % shape[0]) * strides[0];
+                        int indThis = ((i / stridesDenom[0]) % shape[0]) * strides[0];
                         int indOther = 0;
                         for (int d = 0; d < OtherDim; ++d)
                         {
-                            indThis += ((i / strides[d+1]) % shape[d+1]) * strides[d+1];
-                            indOther += (((i / strides[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
+                            indThis += ((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1];
+                            indOther += (((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
                         }
                         result.values[indThis] = func(values[indThis], other.values[indOther]);
                     }
@@ -552,8 +594,8 @@ class Matrix3d
                         int indOther = 0;
                         for (int d = 0; d < MatrixDim; ++d)
                         {
-                            indThis += ((i / strides[d]) % shape[d]) * strides[d];
-                            indOther += (((i / strides[d]) % shape[d]) * strides[d]) % other.shape[d];
+                            indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                            indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
                         }
                         // cout << "indThis = " << indThis << ", indOther= " << indOther << "\n";
                         // cout << values[indThis] << " + " << other.values[indOther];
@@ -564,12 +606,12 @@ class Matrix3d
                 case MatrixDim - 1:
                     for (int i = 0; i < this->getSize(); ++i)
                     {
-                        int indThis = ((i / strides[0]) % shape[0]) * strides[0];
+                        int indThis = ((i / stridesDenom[0]) % shape[0]) * strides[0];
                         int indOther = 0;
                         for (int d = 0; d < OtherDim; ++d)
                         {
-                            indThis += ((i / strides[d+1]) % shape[d+1]) * strides[d+1];
-                            indOther += (((i / strides[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
+                            indThis += ((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1];
+                            indOther += (((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
                         }
                         values[indThis] = func(values[indThis], other.values[indOther]);
                     }
@@ -677,7 +719,6 @@ class Matrix3dTransposedView
                 stridesDenom[i] = currStrideDenom;
                 currStrideDenom *= shape[i];
             }
-            cout << "\n";
         };
         int getSize() const
         {
@@ -712,7 +753,7 @@ class Matrix3dTransposedView
             }
         }
         template <template<int> class MatrixType, int OtherDim>
-        Matrix3dTransposedView<MatrixDim> dot(const MatrixType<OtherDim>& other) const
+        Matrix3d<MatrixDim> dot(const MatrixType<OtherDim>& other) const
         {
             // should check something befor TODO
             static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2, "Dimension mismatch for dot");
@@ -724,6 +765,7 @@ class Matrix3dTransposedView
             resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
 
             Matrix3d result(0, resultShape); // retrun default value anyway
+            // cout << "Inside tdot " << result.shape[0] << " " << result.shape[1]  << "\n";
             try {
                 if (this->shape[OtherDim - 1] != other.shape[OtherDim - 2]) {
                     throw runtime_error(
