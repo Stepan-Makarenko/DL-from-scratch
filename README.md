@@ -10,7 +10,7 @@ Cross Entropy Loss, Sigmoid - :white_check_mark:
 
 Train 2 layers binary classification model - :white_check_mark:
 
-Matrix3d class and operations - :black_square_button:
+Matrix3d class and operations - :white_check_mark:
 
 Self-attention - :black_square_button:
 
