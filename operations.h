@@ -345,20 +345,20 @@ class Matrix3d
             for (int i = 0; i < this->getSize(); ++i)
             {
                 printInd = 0;
-                newline = false;
                 for (int d = 0; d < dim; ++d)
                 {
                     printInd += ((i / stridesDenom[d]) % shape[d]) * strides[d];
-                    if (d < dim - 1) {
-                        newline |= i % stridesDenom[d] == stridesDenom[d] - 1;
-                    }
                 }
                 // cout << i << " " << printInd << " " << strides[1]  << " " << stridesDenom[1] << " " << shape[1] << "\n";
                 cout << values[printInd] << " ";
                 // cout << values[printInd] << " ";
-                if (newline)
+                for (int d = 0; d < dim - 1; ++d)
                 {
-                    cout << "\n";
+                    // newline |= i % stridesDenom[d] == stridesDenom[d] - 1;
+                    if ((i / stridesDenom[d]) != ((i + 1) / stridesDenom[d]))
+                    {
+                        cout << "\n";
+                    }
                 }
             }
         }
@@ -517,6 +517,52 @@ class Matrix3d
             return apply(other, [](float a, float b){ return a / (b + 1e-6); });
         }
         // float mean() const;
+        Matrix3d sum(int dim) const
+        {
+            int resultShape[MatrixDim];
+            for (int i = 0; i < MatrixDim; ++i)
+            {
+                resultShape[i] = shape[i];
+                if (i == dim)
+                {
+                    resultShape[i] = 1;
+                }
+            }
+            Matrix3d<MatrixDim> result(0, resultShape);
+            for (int i = 0; i < this->getSize(); ++i)
+            {
+                int indThis = 0;
+                int indResult = 0;
+                for (int d = 0; d < MatrixDim; ++d)
+                {
+                    indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                    indResult += ((i / stridesDenom[d]) % result.shape[d]) * result.strides[d];
+                }
+                // cout << indThis << " " << indResult << "\n";
+                result.values[indResult] += values[indThis];
+            }
+            return result;
+        }
+
+        Matrix3d<MatrixDim> softmax(int dim=MatrixDim-1) const
+        {
+            Matrix3d<MatrixDim> result = this->apply([](float x){ return exp(x); });
+            Matrix3d<MatrixDim> denoms = result.sum(dim);
+            // TODO should devide by column max
+            for (int i = 0; i < result.getSize(); ++i)
+            {
+                int indResult = 0;
+                int indDenom = 0;
+                for (int d = 0; d < MatrixDim; ++d)
+                {
+                    indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
+                    // indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
+                    indDenom += ((i / result.stridesDenom[d]) % denoms.shape[d]) * denoms.strides[d];
+                }
+                result.values[indResult] = result.values[indResult] / denoms.values[indDenom];
+            }
+            return result;
+        }
 
         Matrix3dTransposedView<MatrixDim> T() const;
 
@@ -557,7 +603,8 @@ class Matrix3d
                         for (int d = 0; d < MatrixDim; ++d)
                         {
                             indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
-                            indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
+                            // indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
+                            indOther += ((i / stridesDenom[d]) % other.shape[d]) * other.strides[d];
                         }
                         result.values[indThis] = func(values[indThis], other.values[indOther]);
                     }
@@ -570,7 +617,8 @@ class Matrix3d
                         for (int d = 0; d < OtherDim; ++d)
                         {
                             indThis += ((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1];
-                            indOther += (((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
+                            // indOther += (((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
+                            indOther += ((i / stridesDenom[d+1]) % other.shape[d+1]) * other.strides[d+1];
                         }
                         result.values[indThis] = func(values[indThis], other.values[indOther]);
                     }
@@ -595,7 +643,8 @@ class Matrix3d
                         for (int d = 0; d < MatrixDim; ++d)
                         {
                             indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
-                            indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
+                            // indOther += (((i / stridesDenom[d]) % shape[d]) * strides[d]) % other.shape[d];
+                            indOther += ((i / stridesDenom[d]) % other.shape[d]) * other.strides[d];
                         }
                         // cout << "indThis = " << indThis << ", indOther= " << indOther << "\n";
                         // cout << values[indThis] << " + " << other.values[indOther];
@@ -611,7 +660,8 @@ class Matrix3d
                         for (int d = 0; d < OtherDim; ++d)
                         {
                             indThis += ((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1];
-                            indOther += (((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
+                            // indOther += (((i / stridesDenom[d+1]) % shape[d+1]) * strides[d+1]) % other.shape[d];
+                            indOther += ((i / stridesDenom[d+1]) % other.shape[d+1]) * other.strides[d+1];
                         }
                         values[indThis] = func(values[indThis], other.values[indOther]);
                     }
@@ -623,7 +673,7 @@ class Matrix3d
         Matrix3d dot(const MatrixType<OtherDim>& other) const
         {
             // should check something befor TODO
-            static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2, "Dimension mismatch for dot");
+            static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2 || (MatrixDim == 3 && OtherDim == 3), "Dimension mismatch for dot");
             int resultShape[MatrixDim];
             for (int i = 0; i < MatrixDim - 1; ++i)
             {
@@ -654,13 +704,16 @@ class Matrix3d
                     for (int d = 0; d < MatrixDim; ++d)
                     {
                         indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
+                        // consider dimensions < MatrixDim - 2 as common for all 3 matrix
                         if (d < MatrixDim - 2)
                         {
-                            indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
+                            // indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
+                            indThis += ((i / result.stridesDenom[d]) % result.shape[d]) * this->strides[d];
                         }
                         if (d < OtherDim - 2)
                         {
-                            indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
+                            // indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
+                            indOther += ((i / result.stridesDenom[d]) % result.shape[d]) * other.strides[d];
                         }
                     }
                     for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)

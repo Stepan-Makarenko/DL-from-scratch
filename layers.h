@@ -150,3 +150,35 @@ class CrossEntropyLoss
             return input.apply(target, [](float x, float y) { return (x - y) / (x * (1 - x) + 1e-6); });
         }
 };
+
+
+// template <int MatrixDim>
+// class AttentionLayer
+// {
+//     friend class Matrix3d<MatrixDim>;
+//     Matrix3d<MatrixDim> input; // (..., c, d)
+//     Matrix3d<2> KW; // (d, k)
+//     Matrix3d<2> QW; // (d, k)
+//     Matrix3d<2> VW; // (d, k)
+
+//     public:
+//         AttentionLayer(): input(), KW(), QW(), VW()  {};
+
+
+//         // Matrix3d<MatrixDim> forward(const Matrix3d<MatrixDim>& x)
+//         // {
+//         //     input = x;
+//         //     Matrix3d<MatrixDim> key = x.dot(KW);
+//         //     Matrix3d<MatrixDim> query = x.dot(QW);
+//         //     Matrix3d<MatrixDim> value = x.dot(VW);
+
+//         //     // Masking ??
+//         //     Matrix3d<MatrixDim> attention = query.T.dot(key); // 3d x 3d dot ?
+//         //     attention = sofrmax(attention / sqrt(n), dim=2); // TODO should make
+//         //     return attention.dot(value) // (..., c, k) should do some normalization here? Or in softmax?;
+//         // }
+//         // Matrix3d<MatrixDim> backward()
+//         // {
+//         //     return input.apply(target, [](float x, float y) { return (x - y) / (x * (1 - x) + 1e-6); });
+//         // }
+// };
