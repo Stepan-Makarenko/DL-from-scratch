@@ -152,33 +152,50 @@ class CrossEntropyLoss
 };
 
 
-// template <int MatrixDim>
-// class AttentionLayer
-// {
-//     friend class Matrix3d<MatrixDim>;
-//     Matrix3d<MatrixDim> input; // (..., c, d)
-//     Matrix3d<2> KW; // (d, k)
-//     Matrix3d<2> QW; // (d, k)
-//     Matrix3d<2> VW; // (d, k)
+template <int MatrixDim>
+class AttentionLayer
+{
+    friend class Matrix3d<MatrixDim>;
+    Matrix3d<MatrixDim> input; // (..., c, d)
+    Matrix3d<2> KW; // (d, k)
+    Matrix3d<2> QW; // (d, k)
+    Matrix3d<2> VW; // (d, k)
 
-//     public:
-//         AttentionLayer(): input(), KW(), QW(), VW()  {};
+    public:
+        AttentionLayer(): input(), KW(), QW(), VW()  {};
+        AttentionLayer(initializer_list<float> KWIn, initializer_list<float> QWIn,  initializer_list<float> VWIn, int N, int M): input()
+        {
+            KW = Matrix3d<2>(KWIn, {N, M});
+            QW = Matrix3d<2>(QWIn, {N, M});
+            VW = Matrix3d<2>(VWIn, {N, M});
+        }
 
 
-//         // Matrix3d<MatrixDim> forward(const Matrix3d<MatrixDim>& x)
-//         // {
-//         //     input = x;
-//         //     Matrix3d<MatrixDim> key = x.dot(KW);
-//         //     Matrix3d<MatrixDim> query = x.dot(QW);
-//         //     Matrix3d<MatrixDim> value = x.dot(VW);
+        Matrix3d<MatrixDim> forward(const Matrix3d<MatrixDim>& x)
+        {
+            input = x;
+            Matrix3d<MatrixDim> key = x.dot(KW);
+            cout << "Key = ";
+            key.printMatrix();
+            Matrix3d<MatrixDim> query = x.dot(QW);
+            Matrix3d<MatrixDim> value = x.dot(VW);
 
-//         //     // Masking ??
-//         //     Matrix3d<MatrixDim> attention = query.T.dot(key); // 3d x 3d dot ?
-//         //     attention = sofrmax(attention / sqrt(n), dim=2); // TODO should make
-//         //     return attention.dot(value) // (..., c, k) should do some normalization here? Or in softmax?;
-//         // }
-//         // Matrix3d<MatrixDim> backward()
-//         // {
-//         //     return input.apply(target, [](float x, float y) { return (x - y) / (x * (1 - x) + 1e-6); });
-//         // }
-// };
+            // Masking ??
+            Matrix3d<MatrixDim> attention = query.dot(key.T());
+            cout << "Attention = ";
+            attention.printMatrix();
+            // Normalize attention scores
+            int n = key.shape[MatrixDim-1];
+            Matrix3d<MatrixDim> normedAttention = attention.apply([n](float x) { return x / sqrt(n); });
+            cout << "NormedAttention = ";
+            normedAttention.printMatrix();
+            Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1); // TODO should make
+            cout << "attentionSoftmax = ";
+            attentionSoftmax.printMatrix();
+            return attentionSoftmax.dot(value); // (..., c, k) should do some normalization here? Or in softmax?;
+        }
+        // Matrix3d<MatrixDim> backward()
+        // {
+        //     return input.apply(target, [](float x, float y) { return (x - y) / (x * (1 - x) + 1e-6); });
+        // }
+};

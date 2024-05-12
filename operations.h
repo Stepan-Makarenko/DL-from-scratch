@@ -1,5 +1,5 @@
 /*
-Discribe common matrix operations like dot, skalar multiplication and others
+Discribe common matrix operations like dot, scalar multiplication and others
 */
 
 #pragma once
@@ -19,214 +19,12 @@ Discribe common matrix operations like dot, skalar multiplication and others
 
 using namespace std;
 
-class Matrix2dTransposedView;
-template <int MatrixDim> class Matrix3dTransposedView;
-
-class Matrix2d
-{
-    friend class Matrix2dTransposedView;
-    shared_ptr<float[]> values;
-    public:
-        // shape is accessible
-        int N;
-        int strideN;
-        int M;
-        int strideM;
-        // Default constructor
-        Matrix2d() : values(nullptr), N(0), strideN(0), M(0), strideM(0) {};
-        // Move semantic
-        // Matrix2d(Matrix2d&& other);
-        // Copy semantic
-        Matrix2d(Matrix2d& other);
-        Matrix2d copy() const;
-        // Copy semantic for transposed
-        Matrix2d(const Matrix2dTransposedView& other);
-
-        Matrix2d(float val, int NIn, int MIn);
-        Matrix2d(int NIn, int MIn);
-        Matrix2d(initializer_list<float> list, int NIn, int MIn);
-        Matrix2d(vector<float> list, int NIn, int MIn);
-        Matrix2d(vector<vector<float>> list);
-        shared_ptr<float[]> const getValues();
-        // Matrix2d& operator=(Matrix2d&& other);
-        const float& operator()(int i, int j);
-        bool operator==(Matrix2d& other);
-        Matrix2d& operator+=(const Matrix2d& other);
-        Matrix2d operator+(const Matrix2d& other);
-        Matrix2d operator*(const Matrix2d& other) const;
-        Matrix2d operator*(const float mult) const;
-        Matrix2d operator-(const Matrix2d& other) const;
-        Matrix2d operator/(const Matrix2d& other) const;
-        float mean() const;
-        Matrix2dTransposedView T() const;
-        void printMatrix() const;
-
-        template <typename Func>
-        Matrix2d apply(Func func) const
-        {
-            Matrix2d result(0, N, M);
-            for (int i = 0; i < N * M; ++i)
-            {
-                result.values[i] = func(values[i]);
-            }
-            return result;
-        }
-
-        template <typename Func>
-        Matrix2d apply(const Matrix2d &other, Func func) const
-        {
-            // same dimensions ?? check
-            checkMatrixCompatibility(other, "Matrix2d apply with wrong dimensions ");
-            Matrix2d result(0, N, M);
-            if (this->M == other.M && this->N == other.N){
-                for (int i = 0; i < N * M; ++i)
-                {
-                    // matrix_i = i / M
-                    // matrix_j = i % M
-                    // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
-                    result.values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i / M * strideN + i % M * strideM]);
-                }
-            }
-            else if (this->M == other.M && 1 == other.N)
-            {
-                for (int i = 0; i < N * M; ++i)
-                {
-                    result.values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i % M]);
-                }
-            }
-            else if (1 == other.M && this->N == other.N)
-            {
-                for (int i = 0; i < N * M; ++i)
-                {
-                    result.values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[i % N]);
-                }
-            }
-            else // (1 == other.M && 1 == other.N)
-            {
-                for (int i = 0; i < N * M; ++i)
-                {
-                    result.values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[0]);
-                }
-            }
-            return result;
-        }
-
-        template <typename Func>
-        void applyInPlace(const Matrix2d &other, Func func) const
-        {
-            // same dimensions ?? check
-            checkMatrixCompatibility(other, "Matrix2d apply with wrong dimensions ");
-            if (this->M == other.M && this->N == other.N){
-                for (int i = 0; i < N * M; ++i)
-                {
-                    // matrix_i = i / M
-                    // matrix_j = i % M
-                    // assume matrix has equivalent strides as they have equal shape ?? TODO fix me
-                    values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i / M * strideN + i % M * strideM]);
-                }
-            }
-            else if (this->M == other.M && this->N == 1)
-            {
-                for (int i = 0; i < N * M; ++i)
-                {
-                    values[i / M * strideN + i % M * strideM] = func(values[i / M * strideN + i % M * strideM], other.values[i % M]);
-                }
-            }
-            else if (1 == other.M && this->N == other.N)
-            {
-                for (int i = 0; i < N * M; ++i)
-                {
-                    values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[i % N]);
-                }
-            }
-            else // (1 == other.M && 1 == other.N)
-            {
-                for (int i = 0; i < N * M; ++i)
-                {
-                    values[i % N * strideN + i / N * strideM] = func(values[i % N * strideN + i / N * strideM], other.values[0]);
-                }
-            }
-        }
-
-        template <typename MatrixType>
-        Matrix2d dot(const MatrixType &other) const
-        {
-
-            Matrix2d result(0, this->N, other.M); // retrun default value anyway
-            try {
-                if (this->M != other.N) {
-                    throw runtime_error(
-                        "Matrix2d multiplication with wrong dimensions");
-                }
-
-                // float result[this->N, other.M] = { 0 };
-                for (int i = 0; i < result.N * result.M; ++i)
-                {
-                    for (int k = 0; k < this->M; ++k)
-                    {
-                        result.values[i / result.M * result.strideN + i % result.M * result.strideM] += (this->values[i / result.M * this->strideN + k * this->strideM] * other.values[k * other.strideN + i % result.M * other.strideM]);
-                    }
-                }
-            }
-            catch (const exception& e) {
-                // print the exception
-                cout << "Exception " << e.what() << endl;
-            }
-            return result;
-        }
-        void checkMatrixCompatibility(const Matrix2d& other, const std::string prefix = "Matrix2d shape are not compatible ") const;
-
-        ~Matrix2d()
-        {
-            // cout << "Delete(" << N << ", " << M << ")" << "\n";
-            // delete[] values;
-        }
-};
-
-class Matrix2dTransposedView
-{
-    friend class Matrix2d;
-    const shared_ptr<float[]> values;
-    public:
-        // shape is accessible
-        int N;
-        int strideN;
-        int M;
-        int strideM;
-        Matrix2dTransposedView(const Matrix2d &m) : values(m.values), N(m.M), strideN(1), M(m.N), strideM(m.M) {};
-        void printMatrix() const;
-        template <typename MatrixType>
-        Matrix2d dot(const MatrixType &other) const
-        {
-
-            Matrix2d result(0, this->N, other.M); // retrun default value anyway
-            try {
-                if (this->M != other.N) {
-                    throw runtime_error(
-                        "Matrix2d multiplication with wrong dimensions");
-                }
-
-                // float result[this->N, other.M] = { 0 };
-                for (int i = 0; i < result.N * result.M; ++i)
-                {
-                    for (int k = 0; k < this->M; ++k)
-                    {
-                        result.values[i / result.M * result.strideN + i % result.M * result.strideM] += (this->values[i / result.M * this->strideN + k * this->strideM] * other.values[k * other.strideN + i % result.M * other.strideM]);
-                    }
-                }
-            }
-            catch (const exception& e) {
-                // print the exception
-                cout << "Exception " << e.what() << endl;
-            }
-            return result;
-        }
-};
-
 template <int MatrixDim>
 class Matrix3d
 {
-    friend class Matrix3dTransposedView<MatrixDim>;
+    // friend class Matrix3dTransposedView<MatrixDim>;
+    template <int FriendMatrixDim>
+    friend class Matrix3d;
     shared_ptr<float[]> values;
     public:
         // shape is accessible
@@ -245,7 +43,7 @@ class Matrix3d
             return copyMatrix;
         }
         // // Copy semantic for transposed
-        Matrix3d(const Matrix3dTransposedView<MatrixDim>& other) : values(other.values), shape(other.shape), strides(other.strides), stridesDenom(other.stridesDenom), dim(other.dim) {};
+        // Matrix3d(const Matrix3dTransposedView<MatrixDim>& other) : values(other.values), shape(other.shape), strides(other.strides), stridesDenom(other.stridesDenom), dim(other.dim) {};
 
         // utility
         int getSize() const
@@ -256,14 +54,17 @@ class Matrix3d
             }
             return size;
         }
-        void initializeShapesAndAllocateMemory(const int (&shapeIn)[MatrixDim])
+        void initializeShapesAndAllocateMemory(const int (&shapeIn)[MatrixDim], bool resetValues=true)
         {
             dim = MatrixDim;
             shape.reset(new int[MatrixDim], default_delete<int[]>());
             std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
             strides.reset(new int[MatrixDim], default_delete<int[]>());
             stridesDenom.reset(new int[MatrixDim], default_delete<int[]>());
-            values.reset(new float[getSize()], default_delete<float[]>());
+            if (resetValues)
+            {
+                values.reset(new float[getSize()], default_delete<float[]>());
+            }
             int initStride = 1;
             for (int i = MatrixDim - 1; i > -1; --i)
             {
@@ -363,6 +164,10 @@ class Matrix3d
             }
         }
 
+        Matrix3d(std::shared_ptr<float[]> values, const int (&shapeIn)[MatrixDim]): values(values)
+        {
+            initializeShapesAndAllocateMemory(shapeIn, false);
+        }
 
         Matrix3d(const int (&shapeIn)[MatrixDim])
         {
@@ -436,6 +241,7 @@ class Matrix3d
         }
         bool operator==(Matrix3d& other)
         {
+            double accuracy = 0.001;
             // compare strides and shape
             for (int i = 0; i < MatrixDim; ++i)
             {
@@ -463,7 +269,7 @@ class Matrix3d
                     thisCompareInd += ((i / stridesDenom[d]) % shape[d]) * strides[d];
                     otherCompareInd += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
                 }
-                if (abs(values[thisCompareInd] - other.values[otherCompareInd]) > 0.0001) { // Float comparison?
+                if (abs(values[thisCompareInd] - other.values[otherCompareInd]) > accuracy) { // Float comparison?
                     cout << thisCompareInd << " " << otherCompareInd << "\n";
                     cout << values[thisCompareInd] << " " << other.values[otherCompareInd] << "\n";
                     return false;
@@ -564,7 +370,27 @@ class Matrix3d
             return result;
         }
 
-        Matrix3dTransposedView<MatrixDim> T() const;
+        // Matrix3dTransposedView<MatrixDim> T() const;
+        Matrix3d<MatrixDim> T() const {
+            static_assert(MatrixDim > 1, "Dimension <2 in transpose operation");
+            int resultShape[MatrixDim];
+            for (int i = 0; i < MatrixDim; ++i)
+            {
+                resultShape[i] = shape[i];
+            }
+            Matrix3d<MatrixDim> TMatrix(this->values, resultShape);
+            TMatrix.shape[dim-2] = shape[dim-1];
+            TMatrix.shape[dim-1] = shape[dim-2];
+            TMatrix.strides[dim-2] = strides[dim-1];
+            TMatrix.strides[dim-1] = strides[dim-2];
+            int currStrideDenom = 1;
+            for (int i = dim-1; i > -1; --i)
+            {
+                TMatrix.stridesDenom[i] = currStrideDenom;
+                currStrideDenom *= shape[i];
+            }
+            return TMatrix;
+        };
 
         template <typename Func>
         Matrix3d apply(Func func) const
@@ -718,8 +544,9 @@ class Matrix3d
                     }
                     for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)
                     {
+                        // cout << "--" << i << " " << indOther << " " << ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
                         // cout << indResult << " " << indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1] << " " << indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
-                        result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1]]);
+                        result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[OtherDim - 1]]);
                     }
                 }
             }
@@ -736,128 +563,3 @@ class Matrix3d
             // delete[] values;
         }
 };
-
-
-template <int MatrixDim>
-class Matrix3dTransposedView
-{
-    friend class Matrix3d<MatrixDim>;
-    const shared_ptr<float[]> values;
-    public:
-        // shape is accessible
-        shared_ptr<int[]> shape; // store N x M x C (swap M and C as transpose)
-        shared_ptr<int[]> strides;
-        // strides and stridesDenom are equal for regular matrix!!!
-        shared_ptr<int[]> stridesDenom;
-        int dim;
-
-        Matrix3dTransposedView(const Matrix3d<MatrixDim> &m) : values(m.values), dim(MatrixDim) {
-            static_assert(MatrixDim > 1, "Dimension <2 in transpose operation");
-            shape.reset(new int[dim], default_delete<int[]>());
-            strides.reset(new int[dim], default_delete<int[]>());
-            stridesDenom.reset(new int[dim], default_delete<int[]>());
-            for (int i = 0; i < dim; ++i)
-            {
-                shape[i] = m.shape[i];
-                strides[i] = m.strides[i];
-                stridesDenom[i] = m.strides[i];
-            }
-            shape[dim-2] = m.shape[dim-1];
-            shape[dim-1] = m.shape[dim-2];
-            strides[dim-2] = m.strides[dim-1];
-            strides[dim-1] = m.strides[dim-2];
-            int currStrideDenom = 1;
-            for (int i = dim-1; i > -1; --i)
-            {
-                stridesDenom[i] = currStrideDenom;
-                currStrideDenom *= shape[i];
-            }
-        };
-        int getSize() const
-        {
-            int size = 1;
-            for (int i = 0; i < dim; ++i) {
-                size *= shape[i];
-            }
-            return size;
-        }
-        void printMatrix() const
-        {
-            int printInd;
-            bool newline = false;
-            for (int i = 0; i < this->getSize(); ++i)
-            {
-                printInd = 0;
-                newline = false;
-                for (int d = 0; d < dim; ++d)
-                {
-                    printInd += ((i / stridesDenom[d]) % shape[d]) * strides[d];
-                    if (d < dim - 1) {
-                        newline |= i % stridesDenom[d] == stridesDenom[d] - 1;
-                    }
-                }
-                // cout << i << " " << printInd << " " << strides[1]  << " " << stridesDenom[1] << " " << shape[1] << "\n";
-                cout << values[printInd] << " ";
-                // cout << values[printInd] << " ";
-                if (newline)
-                {
-                    cout << "\n";
-                }
-            }
-        }
-        template <template<int> class MatrixType, int OtherDim>
-        Matrix3d<MatrixDim> dot(const MatrixType<OtherDim>& other) const
-        {
-            // should check something befor TODO
-            static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2, "Dimension mismatch for dot");
-            int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim - 1; ++i)
-            {
-                resultShape[i] = shape[i];
-            }
-            resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
-
-            Matrix3d result(0, resultShape); // retrun default value anyway
-            // cout << "Inside tdot " << result.shape[0] << " " << result.shape[1]  << "\n";
-            try {
-                if (this->shape[OtherDim - 1] != other.shape[OtherDim - 2]) {
-                    throw runtime_error(
-                        "Matrix2d multiplication with wrong dimensions");
-                }
-                for (int i = 0; i < result.getSize(); ++i)
-                {
-                    int indResult = 0;
-                    int indThis = 0;
-                    int indOther = 0;
-                    for (int d = 0; d < MatrixDim; ++d)
-                    {
-                        indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
-                        if (d < MatrixDim - 2)
-                        {
-                            indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
-                        }
-                        if (d < OtherDim - 2)
-                        {
-                            indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
-                        }
-                    }
-                    for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)
-                    {
-                        // cout << indResult << " " << indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1] << " " << indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
-                        result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1]]);
-                    }
-                }
-            }
-            catch (const exception& e) {
-                // print the exception
-                cout << "Exception " << e.what() << endl;
-            }
-            return result;
-        }
-};
-
-template <int MatrixDim>
-Matrix3dTransposedView<MatrixDim> Matrix3d<MatrixDim>::T() const
-{
-    return Matrix3dTransposedView(*this);
-}

@@ -18,7 +18,7 @@ int main()
     vector<vector<float>> data;
     vector<float> row;
 
-    fin.open("heart_disease.csv");
+    fin.open("../heart_disease.csv");
 
     // Execute a loop until EOF (End of File)
     getline(fin, line);
