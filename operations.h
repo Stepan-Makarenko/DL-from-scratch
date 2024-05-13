@@ -22,7 +22,6 @@ using namespace std;
 template <int MatrixDim>
 class Matrix3d
 {
-    // friend class Matrix3dTransposedView<MatrixDim>;
     template <int FriendMatrixDim>
     friend class Matrix3d;
     shared_ptr<float[]> values;
@@ -42,9 +41,7 @@ class Matrix3d
             std::copy(&values[0], &values[0] + this->getSize(), copyMatrix.values.get());
             return copyMatrix;
         }
-        // // Copy semantic for transposed
-        // Matrix3d(const Matrix3dTransposedView<MatrixDim>& other) : values(other.values), shape(other.shape), strides(other.strides), stridesDenom(other.stridesDenom), dim(other.dim) {};
-
+        
         // utility
         int getSize() const
         {
@@ -106,7 +103,7 @@ class Matrix3d
                             throw:: std::runtime_error(ss.str());
                         }
                     }
-                    // should we also check strides here?
+                    // should we also check strides here? No
                     if ( !( (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1])) ) {
                         throw:: std::runtime_error(ss.str());
                     }
@@ -122,7 +119,7 @@ class Matrix3d
                             throw:: std::runtime_error(ss.str());
                         }
                     }
-                    // should we also check strides here?
+                    // should we also check strides here? No
                     if ( !( (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1])) ) {
                         throw:: std::runtime_error(ss.str());
                     }
@@ -130,17 +127,6 @@ class Matrix3d
         }
         void printMatrix() const
         {
-            // for (int i = 0; i < getSize(); ++i)
-            // {
-            //     cout << values[i] << " ";
-            //     for (int d = 0; d < MatrixDim-1; ++d)
-            //     {
-            //         if (i % strides[d] == strides[d] - 1)
-            //         {
-            //             cout << "\n";
-            //         }
-            //     }
-            // }
             int printInd;
             bool newline = false;
             for (int i = 0; i < this->getSize(); ++i)
@@ -237,31 +223,23 @@ class Matrix3d
         const float& operator()(int i, int j, int k)
         {
             static_assert(MatrixDim == 3, "Undefind operator (i, j, k) for matrix of dim != 3");
-            return values[i * strides[0] + j * strides[1] + j * strides[2]];
+            return values[i * strides[0] + j * strides[1] + k * strides[2]];
         }
         bool operator==(Matrix3d& other)
         {
             double accuracy = 0.001;
-            // compare strides and shape
+            // compare shape
             for (int i = 0; i < MatrixDim; ++i)
             {
                 if (shape[i] != other.shape[i])
                 {
                     return false;
                 }
-                // We don't need strides equality
-                // if (strides[i] != other.strides[i])
-                // {
-                //     return false;
-                // }
             }
 
             int thisCompareInd = 0;
             int otherCompareInd = 0;
             for (int i = 0; i < this->getSize(); ++i) {
-                // if (abs(values[i] - other.values[i]) > 0.0001) { // Float comparison?
-                //     return false;
-                // }
                 thisCompareInd = 0;
                 otherCompareInd = 0;
                 for (int d = 0; d < dim; ++d)
@@ -269,7 +247,7 @@ class Matrix3d
                     thisCompareInd += ((i / stridesDenom[d]) % shape[d]) * strides[d];
                     otherCompareInd += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
                 }
-                if (abs(values[thisCompareInd] - other.values[otherCompareInd]) > accuracy) { // Float comparison?
+                if (abs(values[thisCompareInd] - other.values[otherCompareInd]) > accuracy) {
                     cout << thisCompareInd << " " << otherCompareInd << "\n";
                     cout << values[thisCompareInd] << " " << other.values[otherCompareInd] << "\n";
                     return false;
@@ -280,7 +258,7 @@ class Matrix3d
         template <int OtherDim>
         Matrix3d& operator+=(const Matrix3d<OtherDim>& other)
         {
-            checkMatrixCompatibility(other, "Matrix3d op (+) with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d op (+=) with wrong dimensions ");
             applyInPlace(other, [](float a, float b){ return a + b; });
             return *this;
         }
@@ -299,10 +277,7 @@ class Matrix3d
         Matrix3d operator*(const float mul) const
         {
             int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim; ++i)
-            {
-                resultShape[i] = shape[i];
-            }
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
             Matrix3d result(resultShape);
             for (int i = 0; i < this->getSize(); i++)
             {
@@ -326,14 +301,16 @@ class Matrix3d
         Matrix3d sum(int dim) const
         {
             int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim; ++i)
-            {
-                resultShape[i] = shape[i];
-                if (i == dim)
-                {
-                    resultShape[i] = 1;
-                }
-            }
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
+            resultShape[dim] = 1; // check that dim is proper value
+            // for (int i = 0; i < MatrixDim; ++i)
+            // {
+            //     resultShape[i] = shape[i];
+            //     if (i == dim)
+            //     {
+            //         resultShape[i] = 1;
+            //     }
+            // }
             Matrix3d<MatrixDim> result(0, resultShape);
             for (int i = 0; i < this->getSize(); ++i)
             {
@@ -370,14 +347,10 @@ class Matrix3d
             return result;
         }
 
-        // Matrix3dTransposedView<MatrixDim> T() const;
         Matrix3d<MatrixDim> T() const {
             static_assert(MatrixDim > 1, "Dimension <2 in transpose operation");
             int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim; ++i)
-            {
-                resultShape[i] = shape[i];
-            }
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
             Matrix3d<MatrixDim> TMatrix(this->values, resultShape);
             TMatrix.shape[dim-2] = shape[dim-1];
             TMatrix.shape[dim-1] = shape[dim-2];
@@ -396,10 +369,7 @@ class Matrix3d
         Matrix3d apply(Func func) const
         {
             int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim; ++i)
-            {
-                resultShape[i] = shape[i];
-            }
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
             Matrix3d<MatrixDim> result(0, resultShape);
             for (int i = 0; i < getSize(); ++i)
             {
@@ -412,12 +382,9 @@ class Matrix3d
         Matrix3d apply(const Matrix3d<OtherDim> &other, Func func) const
         {
             // same dimensions ?? check
-            checkMatrixCompatibility(other, "Matrix2d apply with wrong dimensions ");
+            checkMatrixCompatibility(other, "Matrix3d apply with wrong dimensions ");
             int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim; ++i)
-            {
-                resultShape[i] = shape[i];
-            }
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
             Matrix3d<MatrixDim> result(0, resultShape);
             switch ( OtherDim )
             {
@@ -501,10 +468,7 @@ class Matrix3d
             // should check something befor TODO
             static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2 || (MatrixDim == 3 && OtherDim == 3), "Dimension mismatch for dot");
             int resultShape[MatrixDim];
-            for (int i = 0; i < MatrixDim - 1; ++i)
-            {
-                resultShape[i] = shape[i];
-            }
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
             resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
 
             Matrix3d result(0, resultShape); // retrun default value anyway
