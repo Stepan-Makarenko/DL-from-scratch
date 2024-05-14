@@ -161,6 +161,10 @@ class AttentionLayer
     Matrix3d<2> QW; // (d, k)
     Matrix3d<2> VW; // (d, k)
 
+    Matrix3d<2> dKW; // (d, k)
+    Matrix3d<2> dQW; // (d, k)
+    Matrix3d<2> dVW; // (d, k)
+
     public:
         AttentionLayer(): input(), KW(), QW(), VW()  {};
         AttentionLayer(initializer_list<float> KWIn, initializer_list<float> QWIn,  initializer_list<float> VWIn, int N, int M): input()
@@ -168,6 +172,10 @@ class AttentionLayer
             KW = Matrix3d<2>(KWIn, {N, M});
             QW = Matrix3d<2>(QWIn, {N, M});
             VW = Matrix3d<2>(VWIn, {N, M});
+
+            dKW = Matrix3d<2>(0.0, {N, M});
+            dQW = Matrix3d<2>(0.0, {N, M});
+            dVW = Matrix3d<2>(0.0, {N, M});
         }
 
 
@@ -175,27 +183,37 @@ class AttentionLayer
         {
             input = x;
             Matrix3d<MatrixDim> key = x.dot(KW);
-            cout << "Key = ";
-            key.printMatrix();
+            // cout << "Key = ";
+            // key.printMatrix();
             Matrix3d<MatrixDim> query = x.dot(QW);
             Matrix3d<MatrixDim> value = x.dot(VW);
 
             // Masking ??
             Matrix3d<MatrixDim> attention = query.dot(key.T());
-            cout << "Attention = ";
-            attention.printMatrix();
+            // cout << "Attention = ";
+            // attention.printMatrix();
             // Normalize attention scores
             int n = key.shape[MatrixDim-1];
             Matrix3d<MatrixDim> normedAttention = attention.apply([n](float x) { return x / sqrt(n); });
-            cout << "NormedAttention = ";
-            normedAttention.printMatrix();
-            Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1); // TODO should make
-            cout << "attentionSoftmax = ";
-            attentionSoftmax.printMatrix();
+            // cout << "NormedAttention = ";
+            // normedAttention.printMatrix();
+            Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1);
+            // cout << "attentionSoftmax = ";
+            // attentionSoftmax.printMatrix();
             return attentionSoftmax.dot(value); // (..., c, k) should do some normalization here? Or in softmax?;
         }
-        // Matrix3d<MatrixDim> backward()
-        // {
-        //     return input.apply(target, [](float x, float y) { return (x - y) / (x * (1 - x) + 1e-6); });
-        // }
+
+        // Matrix3d<MatrixDim> backward(const Matrix3d<MatrixDim>& dcost_dout)
+        void backward(const Matrix3d<MatrixDim>& dcost_dout)
+        {
+            // Should we save and reuse attention scores?
+            Matrix3d<MatrixDim> key = input.dot(KW);
+            Matrix3d<MatrixDim> query = input.dot(QW);
+            int n = KW.shape[1];
+            Matrix3d<MatrixDim> attention = query.dot(key.T());
+            Matrix3d<MatrixDim> normedAttention = attention.apply([n](float x) { return x / sqrt(n); });
+            Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1);
+
+            dKW += ((attentionSoftmax.dot(input)).T()).dot(dcost_dout).sum(0).squeeze(0);
+        }
 };

@@ -41,7 +41,7 @@ class Matrix3d
             std::copy(&values[0], &values[0] + this->getSize(), copyMatrix.values.get());
             return copyMatrix;
         }
-        
+
         // utility
         int getSize() const
         {
@@ -298,6 +298,8 @@ class Matrix3d
             return apply(other, [](float a, float b){ return a / (b + 1e-6); });
         }
         // float mean() const;
+
+        // add reduce option?
         Matrix3d sum(int dim) const
         {
             int resultShape[MatrixDim];
@@ -320,6 +322,35 @@ class Matrix3d
                 {
                     indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
                     indResult += ((i / stridesDenom[d]) % result.shape[d]) * result.strides[d];
+                }
+                // cout << indThis << " " << indResult << "\n";
+                result.values[indResult] += values[indThis];
+            }
+            return result;
+        }
+
+        Matrix3d<MatrixDim-1> squeeze(int dim) const
+        {
+            if ( shape[dim] != 1 ) {
+                throw:: std::runtime_error("Do not know squeze operation for shape[dim] != 1");
+            }
+
+            int resultShape[MatrixDim - 1];
+            int j = 0;
+            for (int i = 0; i < MatrixDim; ++i) {
+                if (i == dim) continue;
+                resultShape[j] = shape[i];
+                ++j;
+            }
+            Matrix3d<MatrixDim-1> result(0, resultShape);
+            for (int i = 0; i < this->getSize(); ++i)
+            {
+                int indThis = 0;
+                int indResult = 0;
+                for (int d = 0; d < MatrixDim; ++d)
+                {
+                    indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                    // indResult += ((i / stridesDenom[d]) % result.shape[d]) * result.strides[d]; // indResult actialy the same
                 }
                 // cout << indThis << " " << indResult << "\n";
                 result.values[indResult] += values[indThis];
