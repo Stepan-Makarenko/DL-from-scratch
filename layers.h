@@ -209,11 +209,16 @@ class AttentionLayer
             // Should we save and reuse attention scores?
             Matrix3d<MatrixDim> key = input.dot(KW);
             Matrix3d<MatrixDim> query = input.dot(QW);
+            Matrix3d<MatrixDim> value = input.dot(VW);
             int n = KW.shape[1];
             Matrix3d<MatrixDim> attention = query.dot(key.T());
             Matrix3d<MatrixDim> normedAttention = attention.apply([n](float x) { return x / sqrt(n); });
             Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1);
 
-            dKW += ((attentionSoftmax.dot(input)).T()).dot(dcost_dout).sum(0).squeeze(0);
+            dVW += ((attentionSoftmax.dot(input)).T()).dot(dcost_dout).sum(0).squeeze(0);
+            dVW.printMatrix();
+            // attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T());
+            dKW += input.T().dot(attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T())).dot(query).dot(value.T()).dot(dcost_dout).sum(0).squeeze(0);
+            dKW.printMatrix();
         }
 };

@@ -98,15 +98,18 @@ class Matrix3d
                         {
                             throw:: std::runtime_error(ss.str());
                         }
-                        if (this->strides[i] == other.strides[i])
-                        {
-                            throw:: std::runtime_error(ss.str());
-                        }
+
+                        // if (this->strides[i] == other.strides[i])
+                        // {
+                        //     throw:: std::runtime_error(ss.str());
+                        // }
                     }
                     // should we also check strides here? No
                     if ( !( (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1])) ) {
+
                         throw:: std::runtime_error(ss.str());
                     }
+                    break;
                 case MatrixDim - 1:
                     for (int i = 0; i < OtherDim - 2; ++i)
                     {
@@ -114,15 +117,16 @@ class Matrix3d
                         {
                             throw:: std::runtime_error(ss.str());
                         }
-                        if (this->strides[1+i] == other.strides[i])
-                        {
-                            throw:: std::runtime_error(ss.str());
-                        }
+                        // if (this->strides[1+i] == other.strides[i])
+                        // {
+                        //     throw:: std::runtime_error(ss.str());
+                        // }
                     }
                     // should we also check strides here? No
                     if ( !( (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (this->shape[MatrixDim-2] == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && this->shape[MatrixDim-1] == other.shape[OtherDim-1]) || (1 == other.shape[OtherDim-2] && 1 == other.shape[OtherDim-1])) ) {
                         throw:: std::runtime_error(ss.str());
                     }
+                    break;
             }
         }
         void printMatrix() const
@@ -345,15 +349,16 @@ class Matrix3d
             Matrix3d<MatrixDim-1> result(0, resultShape);
             for (int i = 0; i < this->getSize(); ++i)
             {
-                int indThis = 0;
-                int indResult = 0;
-                for (int d = 0; d < MatrixDim; ++d)
-                {
-                    indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
-                    // indResult += ((i / stridesDenom[d]) % result.shape[d]) * result.strides[d]; // indResult actialy the same
-                }
-                // cout << indThis << " " << indResult << "\n";
-                result.values[indResult] += values[indThis];
+                // int indThis = 0;
+                // int indResult = 0;
+                // for (int d = 0; d < MatrixDim; ++d)
+                // {
+                //     indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
+                //     // indResult += ((i / stridesDenom[d]) % result.shape[d]) * result.strides[d]; // indResult actialy the same
+                // }
+                // // cout << indThis << " " << indResult << "\n";
+                // result.values[indResult] += values[indThis];
+                result.values[i] += values[i];
             }
             return result;
         }
@@ -504,7 +509,7 @@ class Matrix3d
 
             Matrix3d result(0, resultShape); // retrun default value anyway
             try {
-                if (this->shape[OtherDim - 1] != other.shape[OtherDim - 2]) {
+                if (this->shape[MatrixDim - 1] != other.shape[OtherDim - 2]) {
                     throw runtime_error(
                         "Matrix2d multiplication with wrong dimensions");
                 }
