@@ -24,9 +24,9 @@ class Matrix3d
 {
     template <int FriendMatrixDim>
     friend class Matrix3d;
-    shared_ptr<float[]> values;
     public:
         // shape is accessible
+        shared_ptr<float[]> values;
         shared_ptr<int[]> shape; // store N x C x M
         shared_ptr<int[]> strides;
         shared_ptr<int[]> stridesDenom; // denoms to get index from raw iterator i

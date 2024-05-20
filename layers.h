@@ -156,16 +156,17 @@ template <int MatrixDim>
 class AttentionLayer
 {
     friend class Matrix3d<MatrixDim>;
-    Matrix3d<MatrixDim> input; // (..., c, d)
-    Matrix3d<2> KW; // (d, k)
-    Matrix3d<2> QW; // (d, k)
-    Matrix3d<2> VW; // (d, k)
-
-    Matrix3d<2> dKW; // (d, k)
-    Matrix3d<2> dQW; // (d, k)
-    Matrix3d<2> dVW; // (d, k)
 
     public:
+        Matrix3d<MatrixDim> input; // (..., c, d)
+        Matrix3d<2> KW; // (d, k)
+        Matrix3d<2> QW; // (d, k)
+        Matrix3d<2> VW; // (d, k)
+
+        Matrix3d<2> dKW; // (d, k)
+        Matrix3d<2> dQW; // (d, k)
+        Matrix3d<2> dVW; // (d, k)
+
         AttentionLayer(): input(), KW(), QW(), VW()  {};
         AttentionLayer(initializer_list<float> KWIn, initializer_list<float> QWIn,  initializer_list<float> VWIn, int N, int M): input()
         {
@@ -216,9 +217,83 @@ class AttentionLayer
             Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1);
 
             dVW += ((attentionSoftmax.dot(input)).T()).dot(dcost_dout).sum(0).squeeze(0);
-            dVW.printMatrix();
+            // dVW.printMatrix();
             // attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T());
-            dKW += input.T().dot(attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T())).dot(query).dot(value.T()).dot(dcost_dout).sum(0).squeeze(0);
-            dKW.printMatrix();
+            // dKW += input.T().dot(attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T())).dot(query).dot(value.T()).dot(dcost_dout).sum(0).squeeze(0);
+            // float K11_grad = 0;
+            // float tmp;
+            // for (int i = 0; i < input.shape[0]; ++i)
+            // {
+            //     for (int j = 0; j < input.shape[1]; ++j)
+            //     {
+            //         for (int k = 0; k < KW.shape[1]; ++k)
+            //         {
+            //             tmp = 0;
+            //             cout << i << " " << j << " " << k << " " << endl;
+            //             for (int l = 0; l < input.shape[1]; ++l)
+            //             {
+            //                 tmp += (attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + l * attention.strides[2]]
+            //                         * query.values[i * query.strides[0] + j * query.strides[1] + 0 * query.strides[2]]
+            //                         * input.values[i * input.strides[0] + l * input.strides[1] + 0 * input.strides[2]]);
+
+            //                 // cout << i << " " << j << " " << l << " " << endl;
+            //                 // cout << "ATT= " << attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + l * attention.strides[2]] << endl;
+            //                 // cout << "Q= " << query.values[i * query.strides[0] + j * query.strides[1] + 1 * query.strides[2]] << endl;
+            //                 // cout << "X= " << input.values[i * input.strides[0] + l * input.strides[1] + 1 * input.strides[2]] << endl;
+            //             }
+            //             for (int p = 0; p < input.shape[1]; ++p)
+            //             {
+            //                 K11_grad += ((1 / sqrt(n)) * attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + p * attention.strides[2]]
+            //                              * value.values[i * value.strides[0] + p * value.strides[1] + k * value.strides[2]]
+            //                              * (
+            //                                 (
+            //                                 query.values[i * query.strides[0] + j * query.strides[1] + 0 * query.strides[2]]
+            //                                 * input.values[i * input.strides[0] + p * input.strides[1] + 0 * input.strides[2]])
+            //                                 - tmp
+            //                              ));
+
+            //             }
+            //             cout << "GRAD K11 = " << K11_grad << endl;
+            //         }
+            //     }
+            // }
+            // cout << "GRAD K11 = " << K11_grad << endl;
+
+            float tmp;
+            for (int dKW_i = 0; dKW_i < KW.shape[0]; ++dKW_i)
+            {
+                for (int dKW_j = 0; dKW_j < KW.shape[1]; ++dKW_j)
+                {
+                    for (int i = 0; i < input.shape[0]; ++i)
+                    {
+                        for (int j = 0; j < input.shape[1]; ++j)
+                        {
+                            for (int k = 0; k < KW.shape[1]; ++k)
+                            {
+                                tmp = 0;
+                                for (int l = 0; l < input.shape[1]; ++l)
+                                {
+                                    tmp += (attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + l * attention.strides[2]]
+                                            * query.values[i * query.strides[0] + j * query.strides[1] + dKW_j * query.strides[2]]
+                                            * input.values[i * input.strides[0] + l * input.strides[1] + dKW_i * input.strides[2]]);
+                                }
+                                for (int p = 0; p < input.shape[1]; ++p)
+                                {
+                                    dKW.values[dKW_i * dKW.strides[0] + dKW_j * dKW.strides[1]] += ((1 / sqrt(n)) * attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + p * attention.strides[2]]
+                                                * value.values[i * value.strides[0] + p * value.strides[1] + k * value.strides[2]]
+                                                * (
+                                                    (
+                                                    query.values[i * query.strides[0] + j * query.strides[1] + dKW_j * query.strides[2]]
+                                                    * input.values[i * input.strides[0] + p * input.strides[1] + dKW_i * input.strides[2]])
+                                                    - tmp
+                                                ));
+
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // dKW.printMatrix();
         }
 };
