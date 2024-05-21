@@ -132,9 +132,11 @@ TEST(AttentionLayer, Bacward) {
     L.backward(Matrix3d<3>(1, {3, 4, 3}));
     Matrix3d<2> dVW{{-5.4780, -5.4780, -5.4780,  7.5805,  7.5805,  7.5805}, {2, 3}};
     Matrix3d<2> dKW{{-0.3900,  0.9447,  0.0653, -0.8479,  2.6087,  0.2017}, {2, 3}};
+    Matrix3d<2> dQW{{-1.0507, -0.3525, -0.2244,  3.1616,  0.9837,  0.7399}, {2, 3}};
 
 
     // ASSERT_TRUE(1 == 1);
     ASSERT_TRUE(L.dVW == dVW);
     ASSERT_TRUE(L.dKW == dKW);
+    ASSERT_TRUE(L.dQW == dQW);
 }

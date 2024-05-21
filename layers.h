@@ -217,48 +217,8 @@ class AttentionLayer
             Matrix3d<MatrixDim> attentionSoftmax = normedAttention.softmax(MatrixDim-1);
 
             dVW += ((attentionSoftmax.dot(input)).T()).dot(dcost_dout).sum(0).squeeze(0);
-            // dVW.printMatrix();
-            // attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T());
-            // dKW += input.T().dot(attentionSoftmax - attentionSoftmax.dot(attentionSoftmax.T())).dot(query).dot(value.T()).dot(dcost_dout).sum(0).squeeze(0);
-            // float K11_grad = 0;
-            // float tmp;
-            // for (int i = 0; i < input.shape[0]; ++i)
-            // {
-            //     for (int j = 0; j < input.shape[1]; ++j)
-            //     {
-            //         for (int k = 0; k < KW.shape[1]; ++k)
-            //         {
-            //             tmp = 0;
-            //             cout << i << " " << j << " " << k << " " << endl;
-            //             for (int l = 0; l < input.shape[1]; ++l)
-            //             {
-            //                 tmp += (attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + l * attention.strides[2]]
-            //                         * query.values[i * query.strides[0] + j * query.strides[1] + 0 * query.strides[2]]
-            //                         * input.values[i * input.strides[0] + l * input.strides[1] + 0 * input.strides[2]]);
 
-            //                 // cout << i << " " << j << " " << l << " " << endl;
-            //                 // cout << "ATT= " << attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + l * attention.strides[2]] << endl;
-            //                 // cout << "Q= " << query.values[i * query.strides[0] + j * query.strides[1] + 1 * query.strides[2]] << endl;
-            //                 // cout << "X= " << input.values[i * input.strides[0] + l * input.strides[1] + 1 * input.strides[2]] << endl;
-            //             }
-            //             for (int p = 0; p < input.shape[1]; ++p)
-            //             {
-            //                 K11_grad += ((1 / sqrt(n)) * attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + p * attention.strides[2]]
-            //                              * value.values[i * value.strides[0] + p * value.strides[1] + k * value.strides[2]]
-            //                              * (
-            //                                 (
-            //                                 query.values[i * query.strides[0] + j * query.strides[1] + 0 * query.strides[2]]
-            //                                 * input.values[i * input.strides[0] + p * input.strides[1] + 0 * input.strides[2]])
-            //                                 - tmp
-            //                              ));
-
-            //             }
-            //             cout << "GRAD K11 = " << K11_grad << endl;
-            //         }
-            //     }
-            // }
-            // cout << "GRAD K11 = " << K11_grad << endl;
-
+            // K grad
             float tmp;
             for (int dKW_i = 0; dKW_i < KW.shape[0]; ++dKW_i)
             {
@@ -279,7 +239,9 @@ class AttentionLayer
                                 }
                                 for (int p = 0; p < input.shape[1]; ++p)
                                 {
-                                    dKW.values[dKW_i * dKW.strides[0] + dKW_j * dKW.strides[1]] += ((1 / sqrt(n)) * attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + p * attention.strides[2]]
+                                    dKW.values[dKW_i * dKW.strides[0] + dKW_j * dKW.strides[1]] += dcost_dout.values[i * dcost_dout.strides[0] + j * dcost_dout.strides[1] + k * dcost_dout.strides[2]]
+                                                * ((1 / sqrt(n))
+                                                * attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + p * attention.strides[2]]
                                                 * value.values[i * value.strides[0] + p * value.strides[1] + k * value.strides[2]]
                                                 * (
                                                     (
@@ -287,13 +249,48 @@ class AttentionLayer
                                                     * input.values[i * input.strides[0] + p * input.strides[1] + dKW_i * input.strides[2]])
                                                     - tmp
                                                 ));
-
                                 }
                             }
                         }
                     }
                 }
             }
-            // dKW.printMatrix();
+
+            // Q grad
+            for (int dQW_i = 0; dQW_i < QW.shape[0]; ++dQW_i)
+            {
+                for (int dQW_j = 0; dQW_j < QW.shape[1]; ++dQW_j)
+                {
+                    for (int i = 0; i < input.shape[0]; ++i)
+                    {
+                        for (int j = 0; j < input.shape[1]; ++j)
+                        {
+                            for (int k = 0; k < QW.shape[1]; ++k)
+                            {
+                                tmp = 0;
+                                for (int l = 0; l < input.shape[1]; ++l)
+                                {
+                                    tmp += (attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + l * attention.strides[2]]
+                                            * key.values[i * query.strides[0] + l * query.strides[1] + dQW_j * query.strides[2]]
+                                            * input.values[i * input.strides[0] + j * input.strides[1] + dQW_i * input.strides[2]]);
+                                }
+                                for (int p = 0; p < input.shape[1]; ++p)
+                                {
+                                    dQW.values[dQW_i * dQW.strides[0] + dQW_j * dQW.strides[1]] += dcost_dout.values[i * dcost_dout.strides[0] + j * dcost_dout.strides[1] + k * dcost_dout.strides[2]]
+                                                * ((1 / sqrt(n))
+                                                * attentionSoftmax.values[i * attention.strides[0] + j * attention.strides[1] + p * attention.strides[2]]
+                                                * value.values[i * value.strides[0] + p * value.strides[1] + k * value.strides[2]]
+                                                * (
+                                                    (
+                                                    key.values[i * query.strides[0] + p * query.strides[1] + dQW_j * query.strides[2]]
+                                                    * input.values[i * input.strides[0] + j * input.strides[1] + dQW_i * input.strides[2]])
+                                                    - tmp
+                                                ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 };
