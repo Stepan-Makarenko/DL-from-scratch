@@ -119,8 +119,8 @@ TEST(Matrix3dTest, swapAxis) {
         -0.5980,  0.5905, -0.9442,  0.4716}, {3, 4});
     Matrix3d<2> B({-0.2164, -1.5273, -0.5980, -0.5887,  1.2432,  0.5905, -1.6053, -1.9438,
         -0.9442, -0.1358, -0.0739,  0.4716}, {4, 3});
-    A.swapAxis({1, 0}).printMatrix();
-    ASSERT_TRUE(A.swapAxis({1, 0}) == B);
+    A.swapAxes(1, 0).printMatrix();
+    ASSERT_TRUE(A.swapAxes(1, 0) == B);
 }
 
 TEST(LinearLayerTest, Forward) {

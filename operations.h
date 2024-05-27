@@ -379,20 +379,18 @@ class Matrix3d
             return result;
         }
 
-        Matrix3d<MatrixDim> swapAxis(const int (&swapDest)[MatrixDim]) const
+        Matrix3d<MatrixDim> swapAxes(int i, int j) const
         {
-            // We need to use this function carefulli or make good error handling
-            // swapDest is for destination axis for each original axis
+            static_assert(MatrixDim > 1, "Undefined swapAxis for matrix with MatrixDim < 2");
 
             // create swaped view without value copying
             int resultShape[MatrixDim];
             std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
             Matrix3d<MatrixDim> result(this->values, resultShape);
-            for (int i = 0; i < MatrixDim; ++i)
-            {
-                result.shape[i] = this->shape[swapDest[i]];
-                result.strides[i] = this->strides[swapDest[i]];
-            }
+            result.shape[i] = this->shape[j];
+            result.shape[j] = this->shape[i];
+            result.strides[i] = this->strides[j];
+            result.strides[j] = this->strides[i];
             int currStrideDenom = 1;
             for (int i = dim-1; i > -1; --i)
             {
@@ -401,6 +399,29 @@ class Matrix3d
             }
             return result;
         }
+
+        // Matrix3d<MatrixDim> view(const int (&swapDest)[MatrixDim]) const // It's ore like torch.view
+        // {
+        //     // We need to use this function carefulli or make good error handling
+        //     // swapDest is for destination axis for each original axis
+
+        //     // create swaped view without value copying
+        //     int resultShape[MatrixDim];
+        //     std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
+        //     Matrix3d<MatrixDim> result(this->values, resultShape);
+        //     for (int i = 0; i < MatrixDim; ++i)
+        //     {
+        //         result.shape[i] = this->shape[swapDest[i]];
+        //         result.strides[i] = this->strides[swapDest[i]];
+        //     }
+        //     int currStrideDenom = 1;
+        //     for (int i = dim-1; i > -1; --i)
+        //     {
+        //         result.stridesDenom[i] = currStrideDenom;
+        //         currStrideDenom *= result.shape[i];
+        //     }
+        //     return result;
+        // }
 
         Matrix3d<MatrixDim> softmax(int dim=MatrixDim-1) const
         {
