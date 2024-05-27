@@ -363,6 +363,45 @@ class Matrix3d
             return result;
         }
 
+        template <int OtherDim>
+        Matrix3d<OtherDim> reshape(const int (&outShape)[OtherDim]) const
+        {
+            int otherSize = 1;
+            for (int i = 0; i < OtherDim; ++i) {
+                otherSize *= outShape[i];
+            }
+            if ( this->getSize() !=  otherSize) {
+                throw:: std::runtime_error("Do not know reshape operation this->size() != result->size()");
+            }
+
+            // create reshape view without value copying
+            Matrix3d<OtherDim> result(this->values, outShape);
+            return result;
+        }
+
+        Matrix3d<MatrixDim> swapAxis(const int (&swapDest)[MatrixDim]) const
+        {
+            // We need to use this function carefulli or make good error handling
+            // swapDest is for destination axis for each original axis
+
+            // create swaped view without value copying
+            int resultShape[MatrixDim];
+            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
+            Matrix3d<MatrixDim> result(this->values, resultShape);
+            for (int i = 0; i < MatrixDim; ++i)
+            {
+                result.shape[i] = this->shape[swapDest[i]];
+                result.strides[i] = this->strides[swapDest[i]];
+            }
+            int currStrideDenom = 1;
+            for (int i = dim-1; i > -1; --i)
+            {
+                result.stridesDenom[i] = currStrideDenom;
+                currStrideDenom *= result.shape[i];
+            }
+            return result;
+        }
+
         Matrix3d<MatrixDim> softmax(int dim=MatrixDim-1) const
         {
             Matrix3d<MatrixDim> result = this->apply([](float x){ return exp(x); });
@@ -396,7 +435,8 @@ class Matrix3d
             for (int i = dim-1; i > -1; --i)
             {
                 TMatrix.stridesDenom[i] = currStrideDenom;
-                currStrideDenom *= shape[i];
+                // currStrideDenom *= shape[i];
+                currStrideDenom *= TMatrix.shape[i];
             }
             return TMatrix;
         };
