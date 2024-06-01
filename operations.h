@@ -335,6 +335,10 @@ class Matrix3d
 
         Matrix3d<MatrixDim-1> squeeze(int dim) const
         {
+            // we should create squeeze view without values copy
+            if ( (dim < 0) || (dim > MatrixDim - 1)) {
+                throw:: std::runtime_error("squeeze with inapropriate dim");
+            }
             if ( shape[dim] != 1 ) {
                 throw:: std::runtime_error("Do not know squeze operation for shape[dim] != 1");
             }
@@ -346,20 +350,28 @@ class Matrix3d
                 resultShape[j] = shape[i];
                 ++j;
             }
-            Matrix3d<MatrixDim-1> result(0, resultShape);
-            for (int i = 0; i < this->getSize(); ++i)
-            {
-                // int indThis = 0;
-                // int indResult = 0;
-                // for (int d = 0; d < MatrixDim; ++d)
-                // {
-                //     indThis += ((i / stridesDenom[d]) % shape[d]) * strides[d];
-                //     // indResult += ((i / stridesDenom[d]) % result.shape[d]) * result.strides[d]; // indResult actialy the same
-                // }
-                // // cout << indThis << " " << indResult << "\n";
-                // result.values[indResult] += values[indThis];
-                result.values[i] += values[i];
+            Matrix3d<MatrixDim-1> result(this->values, resultShape);
+            return result;
+        }
+
+        Matrix3d<MatrixDim+1> unsqueeze(int dim) const
+        {
+            if ( (dim < 0) || (dim > MatrixDim)) {
+                throw:: std::runtime_error("unsqueeze with inapropriate dim");
             }
+
+            int resultShape[MatrixDim + 1];
+            int j = 0;
+            for (int i = 0; i < MatrixDim + 1; ++i) {
+                if (i == dim)
+                {
+                    resultShape[i] = 1;
+                    continue;
+                }
+                resultShape[i] = shape[j];
+                ++j;
+            }
+            Matrix3d<MatrixDim+1> result(this->values, resultShape);
             return result;
         }
 
@@ -564,9 +576,66 @@ class Matrix3d
         {
             // should check something befor TODO
             static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2 || (MatrixDim == 3 && OtherDim == 3), "Dimension mismatch for dot");
-            int resultShape[MatrixDim];
-            std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
-            resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
+            int resultShape[max(MatrixDim, OtherDim)];
+            // broadcasting stage
+            // TODO better init
+            int broadcasThisShape[max(MatrixDim, OtherDim)];
+            int  broadcastOtherShape[max(MatrixDim, OtherDim)];
+            try {
+                if (this->shape[MatrixDim - 1] != other.shape[OtherDim - 2]) {
+                    throw runtime_error(
+                        "Matrix2d multiplication with wrong dimensions");
+                }
+                resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
+                resultShape[MatrixDim - 2] = this->shape[MatrixDim - 2];
+
+                broadcasThisShape[MatrixDim - 1] = this->shape[MatrixDim - 1];
+                broadcasThisShape[MatrixDim - 2] = this->shape[MatrixDim - 2];
+                broadcastOtherShape[OtherDim - 1] = other.shape[OtherDim - 1];
+                broadcastOtherShape[OtherDim - 2] = other.shape[OtherDim - 2];
+
+                bool thisBigger = false;
+                if (MatrixDim > OtherDim)
+                {
+                    thisBigger = true;
+                }
+                int i = MatrixDim - 3;
+                int j = OtherDim - 3;
+                while (max(i, j) > - 1)
+                {
+                    if (i < 0)
+                    {
+                        broadcasThisShape[j] = 1;
+                    }
+                    if (j < 0)
+                    {
+                        broadcastOtherShape[i] = 1;
+                    }
+                    if ((i > -1) && (j > -1) && (this->shape[i] != other.shape[j]) && (min(this->shape[i], other.shape[j]) != 1)) {
+                        throw runtime_error(
+                            "Matrix3d dot with wrong dimensions");
+                    }
+                    if (thisBigger)
+                    {
+                        resultShape[i] = max(this->shape[i], j > -1 ? other.shape[j]: 1);
+                    }
+                    else
+                    {
+                        resultShape[j] = max(other.shape[j], i > -1 ? this->shape[i]: 1);
+                    }
+                    --i;
+                    --j;
+                }
+            }
+            catch (const exception& e) {
+                // print the exception
+                cout << "Exception " << e.what() << endl;
+            }
+
+
+
+            // std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
+            // resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
 
             Matrix3d result(0, resultShape); // retrun default value anyway
             try {
