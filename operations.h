@@ -159,6 +159,17 @@ class Matrix3d
             initializeShapesAndAllocateMemory(shapeIn, false);
         }
 
+        Matrix3d(std::shared_ptr<float[]> values, const int (&shapeIn)[MatrixDim], const int (&stridesIn)[MatrixDim],  const int (&stridesDenomIn)[MatrixDim]): values(values)
+        {
+            dim = MatrixDim;
+            shape.reset(new int[MatrixDim], default_delete<int[]>());
+            std::copy(shapeIn, shapeIn + MatrixDim, shape.get());
+            strides.reset(new int[MatrixDim], default_delete<int[]>());
+            std::copy(stridesIn, stridesIn + MatrixDim, strides.get());
+            stridesDenom.reset(new int[MatrixDim], default_delete<int[]>());
+            std::copy(stridesDenomIn, stridesDenomIn + MatrixDim, stridesDenom.get());
+        }
+
         Matrix3d(const int (&shapeIn)[MatrixDim])
         {
             initializeShapesAndAllocateMemory(shapeIn);
@@ -378,6 +389,7 @@ class Matrix3d
         template <int OtherDim>
         Matrix3d<OtherDim> reshape(const int (&outShape)[OtherDim]) const
         {
+            // do we also need to change strides and strides denom??
             int otherSize = 1;
             for (int i = 0; i < OtherDim; ++i) {
                 otherSize *= outShape[i];
@@ -572,27 +584,45 @@ class Matrix3d
         }
 
         template <template<int> class MatrixType, int OtherDim>
-        Matrix3d dot(const MatrixType<OtherDim>& other) const
+        Matrix3d<max(MatrixDim, OtherDim)> dot(const MatrixType<OtherDim>& other) const
         {
             // should check something befor TODO
-            static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2 || (MatrixDim == 3 && OtherDim == 3), "Dimension mismatch for dot");
-            int resultShape[max(MatrixDim, OtherDim)];
+            // static_assert((MatrixDim == 2 || MatrixDim == 3) && OtherDim == 2 || (MatrixDim == 3 && OtherDim == 3), "Dimension mismatch for dot");
+            const int resultDim = max(MatrixDim, OtherDim);
+            int resultShape[resultDim];
             // broadcasting stage
-            // TODO better init
-            int broadcasThisShape[max(MatrixDim, OtherDim)];
-            int  broadcastOtherShape[max(MatrixDim, OtherDim)];
+            // TODO we should properly preserve strides and strides denom for each broadcasted matrix!!!
+            int broadcastThisShape[resultDim];
+            int broadcastOtherShape[resultDim];
+            int broadcastThisStrides[resultDim];
+            int broadcastOtherStrides[resultDim];
+            int broadcastThisStridesDenom[resultDim];
+            int broadcastOtherStridesDenom[resultDim];
             try {
                 if (this->shape[MatrixDim - 1] != other.shape[OtherDim - 2]) {
                     throw runtime_error(
                         "Matrix2d multiplication with wrong dimensions");
                 }
-                resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
-                resultShape[MatrixDim - 2] = this->shape[MatrixDim - 2];
+                resultShape[resultDim - 1] = other.shape[OtherDim - 1];
+                resultShape[resultDim - 2] = this->shape[MatrixDim - 2];
 
-                broadcasThisShape[MatrixDim - 1] = this->shape[MatrixDim - 1];
-                broadcasThisShape[MatrixDim - 2] = this->shape[MatrixDim - 2];
-                broadcastOtherShape[OtherDim - 1] = other.shape[OtherDim - 1];
-                broadcastOtherShape[OtherDim - 2] = other.shape[OtherDim - 2];
+                broadcastThisShape[resultDim - 1] = this->shape[MatrixDim - 1];
+                broadcastThisShape[resultDim - 2] = this->shape[MatrixDim - 2];
+
+                broadcastThisStrides[resultDim - 1] = this->strides[MatrixDim - 1];
+                broadcastThisStrides[resultDim - 2] = this->strides[MatrixDim - 2];
+
+                broadcastThisStridesDenom[resultDim - 1] = this->stridesDenom[MatrixDim - 1];
+                broadcastThisStridesDenom[resultDim - 2] = this->stridesDenom[MatrixDim - 2];
+
+                broadcastOtherShape[resultDim - 1] = other.shape[OtherDim - 1];
+                broadcastOtherShape[resultDim - 2] = other.shape[OtherDim - 2];
+
+                broadcastOtherStrides[resultDim - 1] = other.strides[OtherDim - 1];
+                broadcastOtherStrides[resultDim - 2] = other.strides[OtherDim - 2];
+
+                broadcastOtherStridesDenom[resultDim - 1] = other.stridesDenom[OtherDim - 1];
+                broadcastOtherStridesDenom[resultDim - 2] = other.stridesDenom[OtherDim - 2];
 
                 bool thisBigger = false;
                 if (MatrixDim > OtherDim)
@@ -601,15 +631,34 @@ class Matrix3d
                 }
                 int i = MatrixDim - 3;
                 int j = OtherDim - 3;
+                int max_i_j;
                 while (max(i, j) > - 1)
                 {
+                    max_i_j = max(i, j);
                     if (i < 0)
                     {
-                        broadcasThisShape[j] = 1;
+                        broadcastThisShape[j] = 1;
+                        broadcastThisStrides[j] = broadcastThisStrides[j + 1];
+                        broadcastThisStridesDenom[j] = broadcastThisStridesDenom[j + 1];
+                    }
+                    else
+                    {
+                        // cout << "i = " << i << "this->shape[i] = " <<this->shape[i] << endl;
+                        broadcastThisShape[max_i_j] = this->shape[i];
+                        broadcastThisStrides[max_i_j] = this->strides[i];
+                        broadcastThisStridesDenom[max_i_j] = this->stridesDenom[i];
                     }
                     if (j < 0)
                     {
                         broadcastOtherShape[i] = 1;
+                        broadcastOtherStrides[i] = broadcastOtherStrides[i + 1];
+                        broadcastOtherStridesDenom[i] = broadcastOtherStridesDenom[i + 1];
+                    }
+                    else
+                    {
+                        broadcastOtherShape[max_i_j] = other.shape[j];
+                        broadcastOtherStrides[max_i_j] = other.strides[j];
+                        broadcastOtherStridesDenom[max_i_j] = other.stridesDenom[j];
                     }
                     if ((i > -1) && (j > -1) && (this->shape[i] != other.shape[j]) && (min(this->shape[i], other.shape[j]) != 1)) {
                         throw runtime_error(
@@ -632,51 +681,57 @@ class Matrix3d
                 cout << "Exception " << e.what() << endl;
             }
 
+            // cout << "Result broadcast shape = ";
+            // for (auto el: resultShape)
+            // {
+            //     cout << el << " ";
+            // }
+            // cout << endl;
+            // cout << "This shape = ";
+            // for (int i = 0; i < MatrixDim; ++i)
+            // {
+            //     cout << shape[i] << " ";
+            // }
+            // cout << endl;
+            // cout << "This broadcast shape = ";
+            // for (auto el: broadcastThisShape)
+            // {
+            //     cout << el << " ";
+            // }
+            // cout << endl;
+            // cout << "Other broadcast shape = ";
+            // for (auto el: broadcastOtherShape)
+            // {
+            //     cout << el << " ";
+            // }
+            // cout << endl;
 
+            Matrix3d<resultDim> broadcastedThis(this->values, broadcastThisShape, broadcastThisStrides, broadcastThisStridesDenom);
+            Matrix3d<resultDim> broadcastedOther(other.values, broadcastOtherShape, broadcastOtherStrides, broadcastOtherStridesDenom);
+            Matrix3d<resultDim> result(0, resultShape); // retrun default value anyway
+            // Matrix3d result({1, 1}, {1, 2}); // retrun default value anyway
 
-            // std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
-            // resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
-
-            Matrix3d result(0, resultShape); // retrun default value anyway
             try {
-                if (this->shape[MatrixDim - 1] != other.shape[OtherDim - 2]) {
-                    throw runtime_error(
-                        "Matrix2d multiplication with wrong dimensions");
-                }
-
-                // float result[this->N, other.M] = { 0 };
-                // for (int i = 0; i < result.N * result.M; ++i)
-                // {
-                //     for (int k = 0; k < this->M; ++k)
-                //     {
-                //         result.values[i / result.M * result.strideN + i % result.M * result.strideM] += (this->values[i / result.M * this->strideN + k * this->strideM] * other.values[k * other.strideN + i % result.M * other.strideM]);
-                //     }
-                // }
                 for (int i = 0; i < result.getSize(); ++i)
                 {
                     int indResult = 0;
                     int indThis = 0;
                     int indOther = 0;
-                    for (int d = 0; d < MatrixDim; ++d)
+                    for (int d = 0; d < resultDim; ++d)
                     {
                         indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
                         // consider dimensions < MatrixDim - 2 as common for all 3 matrix
-                        if (d < MatrixDim - 2)
+                        if (d < resultDim - 2)
                         {
-                            // indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
-                            indThis += ((i / result.stridesDenom[d]) % result.shape[d]) * this->strides[d];
-                        }
-                        if (d < OtherDim - 2)
-                        {
-                            // indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
-                            indOther += ((i / result.stridesDenom[d]) % result.shape[d]) * other.strides[d];
+                            indThis += ((i / result.stridesDenom[d]) % broadcastedThis.shape[d]) * broadcastedThis.strides[d];
+                            indOther += ((i / result.stridesDenom[d]) % broadcastedOther.shape[d]) * broadcastedOther.strides[d];
                         }
                     }
-                    for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)
+                    for (int k = 0; k < broadcastedThis.shape[resultDim - 1]; ++k)
                     {
                         // cout << "--" << i << " " << indOther << " " << ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
-                        // cout << indResult << " " << indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1] << " " << indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
-                        result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[OtherDim - 1]]);
+                        // cout << indResult << " " << indThis + ((i / result.stridesDenom[resultDim-2]) % result.shape[resultDim-2]) * broadcastedThis.strides[resultDim-2] + k * broadcastedThis.strides[resultDim-1] << " " << indOther + k * broadcastedOther.strides[resultDim - 2] + ((i / result.stridesDenom[resultDim - 1]) % result.shape[resultDim - 1]) * broadcastedOther.strides[resultDim - 1] << "\n";
+                        result.values[indResult] += (broadcastedThis.values[indThis + ((i / result.stridesDenom[resultDim-2]) % result.shape[resultDim-2]) * broadcastedThis.strides[resultDim-2] + k * broadcastedThis.strides[resultDim-1]] * broadcastedOther.values[indOther + k * broadcastedOther.strides[resultDim - 2] + ((i / result.stridesDenom[resultDim - 1]) % result.shape[resultDim - 1]) * broadcastedOther.strides[resultDim - 1]]);
                     }
                 }
             }
@@ -684,6 +739,57 @@ class Matrix3d
                 // print the exception
                 cout << "Exception " << e.what() << endl;
             }
+
+            // std::copy(shape.get(), shape.get() + MatrixDim, resultShape);
+            // resultShape[MatrixDim - 1] = other.shape[OtherDim - 1];
+
+            // Matrix3d result(0, resultShape); // retrun default value anyway
+            // try {
+            //     if (this->shape[MatrixDim - 1] != other.shape[OtherDim - 2]) {
+            //         throw runtime_error(
+            //             "Matrix2d multiplication with wrong dimensions");
+            //     }
+
+            //     // float result[this->N, other.M] = { 0 };
+            //     // for (int i = 0; i < result.N * result.M; ++i)
+            //     // {
+            //     //     for (int k = 0; k < this->M; ++k)
+            //     //     {
+            //     //         result.values[i / result.M * result.strideN + i % result.M * result.strideM] += (this->values[i / result.M * this->strideN + k * this->strideM] * other.values[k * other.strideN + i % result.M * other.strideM]);
+            //     //     }
+            //     // }
+            //     for (int i = 0; i < result.getSize(); ++i)
+            //     {
+            //         int indResult = 0;
+            //         int indThis = 0;
+            //         int indOther = 0;
+            //         for (int d = 0; d < MatrixDim; ++d)
+            //         {
+            //             indResult += ((i / result.stridesDenom[d]) % result.shape[d]) * result.strides[d];
+            //             // consider dimensions < MatrixDim - 2 as common for all 3 matrix
+            //             if (d < MatrixDim - 2)
+            //             {
+            //                 // indThis += ((i / this->stridesDenom[d]) % this->shape[d]) * this->strides[d];
+            //                 indThis += ((i / result.stridesDenom[d]) % result.shape[d]) * this->strides[d];
+            //             }
+            //             if (d < OtherDim - 2)
+            //             {
+            //                 // indOther += ((i / other.stridesDenom[d]) % other.shape[d]) * other.strides[d];
+            //                 indOther += ((i / result.stridesDenom[d]) % result.shape[d]) * other.strides[d];
+            //             }
+            //         }
+            //         for (int k = 0; k < this->shape[MatrixDim - 1]; ++k)
+            //         {
+            //             // cout << "--" << i << " " << indOther << " " << ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
+            //             // cout << indResult << " " << indThis + ((i / result.strides[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1] << " " << indOther + k * other.strides[OtherDim - 2] + ((i / result.strides[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[MatrixDim - 1] << "\n";
+            //             result.values[indResult] += (this->values[indThis + ((i / result.stridesDenom[MatrixDim-2]) % result.shape[MatrixDim-2]) * this->strides[MatrixDim-2] + k * this->strides[MatrixDim-1]] * other.values[indOther + k * other.strides[OtherDim - 2] + ((i / result.stridesDenom[MatrixDim - 1]) % result.shape[MatrixDim - 1]) * other.strides[OtherDim - 1]]);
+            //         }
+            //     }
+            // }
+            // catch (const exception& e) {
+            //     // print the exception
+            //     cout << "Exception " << e.what() << endl;
+            // }
             return result;
         }
 
